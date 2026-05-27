@@ -1,33 +1,52 @@
 <div align="center">
   <img src="https://capsule-render.vercel.app/api?type=waving&color=gradient&customColorList=6,11,20&height=180&section=header&text=Shubham%20Mate&fontSize=42&fontColor=fff&animation=twinkling&fontAlignY=32&desc=Full-Stack%20Web3%20Engineer%20%7C%20Blockchain%20Architect%20%7C%20Builder&descAlignY=55&descSize=16" />
 </div>
+
+
 <div align="center">
   <a href="https://readme-typing-svg.herokuapp.com">
     <img src="https://readme-typing-svg.herokuapp.com?font=JetBrains+Mono&weight=600&size=18&duration=3500&pause=800&color=58A6FF&center=true&vCenter=true&multiline=false&width=700&lines=Architecting+Enterprise+Decentralized+Infrastructure;Bridging+Off-Chain+Identity+with+On-Chain+Finality;Gasless+EIP-712+%7C+Zero-Trust+Security+%7C+Smart+Contracts;Building+systems+that+outlast+their+builders." alt="Typing SVG" />
   </a>
 </div>
+
+
 <br/>
+
+
 <div align="center">
   <a href="https://www.linkedin.com/in/shubham-mate-6b436b229/">
     <img src="https://img.shields.io/badge/LinkedIn-%230077B5.svg?style=for-the-badge&logo=linkedin&logoColor=white" />
   </a>
+  &nbsp;
   <a href="https://x.com/mateshubham4">
     <img src="https://img.shields.io/badge/X-%23000000.svg?style=for-the-badge&logo=X&logoColor=white" />
   </a>
+  &nbsp;
   <a href="https://medium.com/@mateshubham4">
     <img src="https://img.shields.io/badge/Medium-12100E?style=for-the-badge&logo=medium&logoColor=white" />
   </a>
+  &nbsp;
   <a href="https://www.instagram.com/_i_a.m_s.h.u.b.h.a.m_/">
     <img src="https://img.shields.io/badge/Instagram-%23E4405F.svg?style=for-the-badge&logo=Instagram&logoColor=white" />
   </a>
+  &nbsp;
   <a href="mailto:skillerdev03@gmail.com">
     <img src="https://img.shields.io/badge/Gmail-D14836?style=for-the-badge&logo=gmail&logoColor=white" />
   </a>
 </div>
+
+
 <br/>
+
+
 ---
+
+
 <img align="right" width="280" src="https://raw.githubusercontent.com/Adam-pw/Adam-pw/main/animation_500_kxa883sd.gif" alt="coding gif" />
+
+
 ## 🧠 About Me
+
 ```typescript
 const shubham = {
   title: "Full-Stack Web3 Engineer",
@@ -44,9 +63,16 @@ const shubham = {
     "Replace legacy trust assumptions with cryptographic proof.",
 };
 ```
+
+
 <br clear="right"/>
+
+
 ---
+
+
 ## ⚡ What I Build
+
 <table>
   <tr>
     <td valign="top" width="33%">
@@ -63,33 +89,48 @@ const shubham = {
     </td>
   </tr>
 </table>
+
+
 ---
+
+
 ## 🛠️ Technology Arsenal
+
 <div align="center">
+
 <strong>Languages & Runtimes</strong><br/>
 <img src="https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white" alt="TypeScript" />
 <img src="https://img.shields.io/badge/JavaScript-F7DF1E?style=flat-square&logo=javascript&logoColor=black" alt="JavaScript" />
 <img src="https://img.shields.io/badge/Solidity-363636?style=flat-square&logo=solidity&logoColor=white" alt="Solidity" />
 <img src="https://img.shields.io/badge/Node.js-339933?style=flat-square&logo=nodedotjs&logoColor=white" alt="Node.js" />
 <img src="https://img.shields.io/badge/Rust-000000?style=flat-square&logo=rust&logoColor=white" alt="Rust" />
-<br/><strong>Frontend & UI</strong><br/>
+
+<br/><br/><strong>Frontend & UI</strong><br/>
 <img src="https://img.shields.io/badge/Next.js-000000?style=flat-square&logo=nextdotjs&logoColor=white" alt="Next.js" />
 <img src="https://img.shields.io/badge/React-61DAFB?style=flat-square&logo=react&logoColor=black" alt="React" />
 <img src="https://img.shields.io/badge/Electron-47848F?style=flat-square&logo=electron&logoColor=white" alt="Electron" />
 <img src="https://img.shields.io/badge/TailwindCSS-06B6D4?style=flat-square&logo=tailwindcss&logoColor=white" alt="TailwindCSS" />
-<br/><strong>Backend & Blockchain</strong><br/>
+
+<br/><br/><strong>Backend & Blockchain</strong><br/>
 <img src="https://img.shields.io/badge/Express-000000?style=flat-square&logo=express&logoColor=white" alt="Express" />
 <img src="https://img.shields.io/badge/Hardhat-yellow?style=flat-square&logo=ethereum&logoColor=black" alt="Hardhat" />
 <img src="https://img.shields.io/badge/PostgreSQL-4169E1?style=flat-square&logo=postgresql&logoColor=white" alt="PostgreSQL" />
 <img src="https://img.shields.io/badge/AWS-FF9900?style=flat-square&logo=amazonaws&logoColor=white" alt="AWS" />
-<br/><strong>DevOps & Security</strong><br/>
+
+<br/><br/><strong>DevOps & Security</strong><br/>
 <img src="https://img.shields.io/badge/Docker-2496ED?style=flat-square&logo=docker&logoColor=white" alt="Docker" />
 <img src="https://img.shields.io/badge/Linux-FCC624?style=flat-square&logo=linux&logoColor=black" alt="Linux" />
 <img src="https://img.shields.io/badge/Nginx-009639?style=flat-square&logo=nginx&logoColor=white" alt="Nginx" />
 <img src="https://img.shields.io/badge/PM2-2B037A?style=flat-square&logo=pm2&logoColor=white" alt="PM2" />
+
 </div>
+
+
 ---
+
+
 ## 🚀 Featured Engineering
+
 <table>
   <tr>
     <td width="50%" valign="top">
@@ -119,30 +160,55 @@ const shubham = {
     </td>
   </tr>
 </table>
+
+
 ---
+
+
 ## 📊 GitHub Stats
+
 <div align="center">
   <img src="https://github-readme-stats.vercel.app/api?username=CoderShubhamMate&show_icons=true&theme=tokyonight&hide_border=true&include_all_commits=true&count_private=true&rank_icon=github" width="49%" />
+  &nbsp;
   <img src="https://github-readme-stats.vercel.app/api/top-langs/?username=CoderShubhamMate&layout=compact&theme=tokyonight&hide_border=true&langs_count=8" width="49%" />
 </div>
+
+<br/>
+
 <div align="center">
   <img src="https://streak-stats.demolab.com?user=CoderShubhamMate&theme=tokyonight&hide_border=true&date_format=j%20M%5B%20Y%5D" width="70%" />
 </div>
+
+<br/>
+
 <div align="center">
   <img src="https://github-readme-activity-graph.vercel.app/graph?username=CoderShubhamMate&theme=tokyo-night&hide_border=true&area=true" width="98%" />
 </div>
+
+
 ---
+
+
 ## 🏅 GitHub Trophies
+
 <div align="center">
   <img src="https://github-profile-trophy.vercel.app/?username=CoderShubhamMate&theme=tokyonight&no-frame=true&no-bg=true&column=7&margin-w=4" />
 </div>
+
+
 ---
+
+
 <div align="center">
   <img src="https://capsule-render.vercel.app/api?type=waving&color=gradient&customColorList=6,11,20&height=100&section=footer" />
 </div>
+
+
 <p align="center">
   <img src="https://komarev.com/ghpvc/?username=CoderShubhamMate&label=Profile+Views&color=0e75b6&style=flat" />
 </p>
+
+
 <p align="center">
   <i>"The best infrastructure is invisible to the user and unbreakable by the attacker."</i>
 </p>

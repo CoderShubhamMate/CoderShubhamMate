@@ -12,19 +12,15 @@
   <a href="https://www.linkedin.com/in/shubham-mate-6b436b229/">
     <img src="https://img.shields.io/badge/LinkedIn-%230077B5.svg?style=for-the-badge&logo=linkedin&logoColor=white" />
   </a>
-  &nbsp;
   <a href="https://x.com/mateshubham4">
     <img src="https://img.shields.io/badge/X-%23000000.svg?style=for-the-badge&logo=X&logoColor=white" />
   </a>
-  &nbsp;
   <a href="https://medium.com/@mateshubham4">
     <img src="https://img.shields.io/badge/Medium-12100E?style=for-the-badge&logo=medium&logoColor=white" />
   </a>
-  &nbsp;
   <a href="https://www.instagram.com/_i_a.m_s.h.u.b.h.a.m_/">
     <img src="https://img.shields.io/badge/Instagram-%23E4405F.svg?style=for-the-badge&logo=Instagram&logoColor=white" />
   </a>
-  &nbsp;
   <a href="mailto:skillerdev03@gmail.com">
     <img src="https://img.shields.io/badge/Gmail-D14836?style=for-the-badge&logo=gmail&logoColor=white" />
   </a>

@@ -1,5 +1,3 @@
-
-#!/usr/bin/env node
 /**
  * Contribution Snake GAME generator (zero dependencies, Node 18+)
  *

@@ -1,4 +1,4 @@
-name: Generate Snake Animation
+name: Generate Snake Game
 
 on:
   schedule:
@@ -17,13 +17,27 @@ jobs:
     timeout-minutes: 5
 
     steps:
-      - name: Generate github-contribution-grid-snake.svg
-        uses: Platane/snk/svg-only@v3
+      - name: Checkout (to get the generator script)
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
-          github_user_name: CoderShubhamMate
-          outputs: |
-            dist/github-contribution-grid-snake.svg
-            dist/github-contribution-grid-snake-dark.svg?palette=github-dark
+          node-version: 20
+
+      - name: Generate snake game SVGs
+        run: node .github/scripts/generate-snake.mjs
+        env:
+          GH_USER: CoderShubhamMate
+          # Uses a personal access token if you add one called GH_PAT, otherwise the default token
+          GITHUB_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
+          OUT_DIR: dist
+          # ---- optional game tuning (uncomment to change) ----
+          # STAR_MIN: "8"            # min contributions in a day to become a star (default: auto)
+          # GROW_NORMAL: "1"         # growth for a normal contribution block
+          # GROW_STAR: "2"           # growth for a star (default = 2x normal)
+          # MAX_SNAKE_LENGTH: "40"   # visual cap on snake length
+          # STEP_SECONDS: "0.09"     # lower = faster snake
 
       - name: Push SVGs to output branch
         uses: crazy-max/ghaction-github-pages@v3.1.0

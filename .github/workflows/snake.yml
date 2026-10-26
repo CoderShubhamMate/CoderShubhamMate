@@ -36,8 +36,8 @@ jobs:
           # STAR_MIN: "8"            # min contributions in a day to become a star (default: auto)
           # GROW_NORMAL: "1"         # growth for a normal contribution block
           # GROW_STAR: "2"           # growth for a star (default = 2x normal)
-          # MAX_SNAKE_LENGTH: "40"   # visual cap on snake length
-          # STEP_SECONDS: "0.09"     # lower = faster snake
+          # MAX_SNAKE_LENGTH: "30"   # cap on snake length
+          # TARGET_SECONDS: "35"     # how long the eating phase should last (lower = faster snake)
 
       - name: Push SVGs to output branch
         uses: crazy-max/ghaction-github-pages@v3.1.0

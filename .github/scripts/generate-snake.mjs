@@ -1,16 +1,14 @@
 /**
  * Contribution Snake GAME generator (zero dependencies, Node 18+)
  *
- * Rules
- *  - Every day with contributions is food.
- *  - The snake eats from the LOWEST contribution count upwards:
- *    first the 1s, then a little higher, then higher ... stars last.
- *  - Days with "a lot" of contributions are 3D rotating STARS.
- *  - Eating normal food -> snake grows by GROW_NORMAL (default 1)
- *  - Eating a star      -> snake grows by GROW_STAR   (default 2x normal)
- *  - The snake never runs into itself (path-finding around its own body).
- *  - Finale: the snake bursts into pieces that scatter over the grid, the
- *    TOTAL contribution count pops up, then everything restarts.
+ *  1. The snake starts with a body of 3 and slides in from the left edge.
+ *  2. It eats contribution by contribution, strictly from the LOWEST count to the
+ *     HIGHEST (all 1s, then all 2s, then 3s ...). Stars (big days) come last.
+ *  3. Normal food grows it by GROW_NORMAL (1), a star by GROW_STAR (2x).
+ *  4. It never runs into itself (path-finding around its own body).
+ *  5. After the last contribution it runs to the nearest border, blinks twice,
+ *     explodes like a bomb, the pieces bounce off the borders and fall into place
+ *     as the TOTAL contribution number. Then everything restarts.
  *
  * Env vars (all optional except GH_USER + GITHUB_TOKEN, unless MOCK=1)
  *   GH_USER, GITHUB_TOKEN   who to fetch / auth for the GraphQL API
@@ -122,13 +120,13 @@ for (const d of allDays) d.star = d.count > 0 && d.count >= STAR_MIN;
 const starCount = allDays.filter((d) => d.star).length;
 
 // Food sorted from the lowest contribution count upwards, then split into
-// buckets ("lowest", "a little higher", "higher", ...). A count is never split
-// across two buckets. Inside a bucket the snake always goes for the nearest food.
+// groups: all the 1s, then all the 2s, then 3s ... Inside a group the snake
+// always goes for the nearest food.
 const foods = allDays
   .filter((d) => d.count > 0)
   .sort((a, b) => a.count - b.count || a.c - b.c || a.row - b.row);
 if (foods.length < 2) throw new Error("Not enough contribution data to build a game.");
-const BUCKET_MIN = Math.max(4, Math.ceil(foods.length / Number(env.BUCKET_DIV || 12)));
+const BUCKET_MIN = 1; // groups = exact contribution counts
 const buckets = [];
 {
   let cur = [];
@@ -301,15 +299,17 @@ function safeAfter(p) {
       seen.add(nk); stack.push(nk);
     }
   }
-  return l <= 2 || seen.has(tailK);
+  const tailCell = full[Math.max(0, full.length - l)];
+  return l <= 2 || !grid[tailCell.c]?.[tailCell.r] || seen.has(tailK);
 }
 
 const legStats = { timed: 0, static: 0, wander: 0, ghost: 0 };
 
 // Prefer routes that never touch food that is not due yet; only if there is no
 // such route is the snake allowed to cross (and eat) higher food early.
-function planLeg(cands) {
-  const modes = [["timed", true], ["static", true], ["timed", false], ["static", false]];
+function planLeg(cands, allowCross = true) {
+  const modes = [["timed", true], ["static", true]];
+  if (allowCross) modes.push(["timed", false], ["static", false]);
   for (const [body, hard] of modes) {
     const res = search({ body, allowed: cands, hard });
     for (const { k } of rankedTargets(res, cands)) {
@@ -360,19 +360,57 @@ function ghostLeg(cands) {
 
 // Plan the whole run
 {
-  const start = [...buckets[0]].sort((a, b) => a.c - b.c || a.row - b.row)[0];
-  pushStep(start.c, start.row);
-  let guard = 0;
+  // The snake slides in from the left edge with a body of 3.
+  const lows = buckets[0];
+  let entryRow = -1, bestD = Infinity;
+  for (const emptyOnly of [true, false]) {
+    for (let r = 0; r < 7; r++) {
+      const cell = grid[0]?.[r];
+      if (!cell || (emptyOnly && cell.count > 0)) continue;
+      const d = Math.min(...lows.map((f) => f.c + Math.abs(f.row - r)));
+      if (d < bestD) { bestD = d; entryRow = r; }
+    }
+    if (entryRow >= 0) break;
+  }
+  if (entryRow < 0) entryRow = grid[0].findIndex(Boolean);
+  len = 3;
+  route.push({ c: -1, r: entryRow }); L.push(len); // off-grid entry cell
+  pushStep(0, entryRow);
+
+  let guard = 0, stuck = 0;
+  const CROSS_AFTER = Number(env.CROSS_AFTER ?? 0); // (optional) steps to wait before eating a higher day early
   for (const bucket of buckets) {
     const remaining = new Set(bucket);
     for (;;) {
       for (const cell of [...remaining]) if (eaten.has(cell)) remaining.delete(cell);
-      if (!remaining.size || ++guard > 6000) break;
-      let leg = planLeg(remaining);
-      if (!leg) leg = wanderStep();
+      if (!remaining.size || ++guard > 8000) break;
+      let leg = planLeg(remaining, stuck >= CROSS_AFTER);
+      if (leg) stuck = 0;
+      else { leg = wanderStep(); stuck++; }
       if (!leg) leg = ghostLeg(remaining);
       if (!leg) break;
       for (const s of leg) pushStep(s.c, s.r);
+    }
+  }
+}
+
+// Finale: after the highest contribution the snake runs to the nearest border and stops there.
+const isBorder = (c, r) => DIRS.some(([dc, dr]) => !grid[c + dc]?.[r + dr]);
+{
+  const head = route[route.length - 1];
+  if (!isBorder(head.c, head.r)) {
+    const borderCells = allDays.filter((d) => isBorder(d.c, d.row));
+    for (const body of ["timed", "static"]) {
+      const res = search({ body, allowed: new Set() });
+      let done = false;
+      for (const { k } of rankedTargets(res, borderCells)) {
+        const p = reconstruct(res, k);
+        if (body === "timed" && !legOk(p)) continue;
+        for (const s of p) pushStep(s.c, s.r);
+        done = true;
+        break;
+      }
+      if (done) break;
     }
   }
 }
@@ -384,7 +422,7 @@ const maxL = L[N - 1];
 
 /* -------------------------------------------------------------- rendering */
 
-const STEP = env.STEP_SECONDS ? Number(env.STEP_SECONDS) : Math.min(0.09, Math.max(0.035, TARGET_SECONDS / N));
+const STEP = env.STEP_SECONDS ? Number(env.STEP_SECONDS) : Math.min(0.09, Math.max(0.03, TARGET_SECONDS / N));
 
 const CELL = 12, GAP = 3, PITCH = CELL + GAP, PAD = 20, TOP = 44, BOTTOM = 36;
 const gridW = W * PITCH - GAP, gridH = 7 * PITCH - GAP;
@@ -392,17 +430,21 @@ const WIDTH = PAD * 2 + gridW, HEIGHT = TOP + gridH + BOTTOM;
 const cx = (c) => PAD + c * PITCH + CELL / 2;
 const cy = (r) => TOP + r * PITCH + CELL / 2;
 
-// timeline (seconds): run -> scatter -> total number -> hold -> fade -> restart
-const tRun = (N - 1) * STEP;
-const SC = Math.max(1.6, maxL * STEP + 0.7);
-const tScatterEnd = tRun + SC;
-const tNum = tRun + SC * 0.55;
-const tFadeStart = tScatterEnd + 3.5;
+// timeline (seconds): run -> touch border -> blink x2 -> BOOM -> bounce -> fall into place -> hold -> fade -> restart
+const tTouch = (N - 1) * STEP;
+const BL = 0.16;
+const tB0 = tTouch + 0.2;
+const tBlast = tB0 + 4 * BL + 0.1;
+const FLY = 1.7, SETTLE = 0.8;
+const tFlyEnd = tBlast + FLY;
+const tSettleEnd = tFlyEnd + SETTLE;
+const tFadeStart = tSettleEnd + 4;
 const tFadeEnd = tFadeStart + 0.7;
 const P = tFadeEnd + 0.6;
 
 const pct = (t) => (t / P) * 100;
 const num = (v) => +v.toFixed(4);
+const n1 = (v) => +v.toFixed(1);
 const pf = (v) => `${num(v)}%`;
 const E = 0.0005;
 
@@ -414,25 +456,115 @@ const mix = (a, b, t) => {
 
 const PALETTES = {
   dark: {
-    empty: "#161b22", levels: ["#161b22", "#0e4429", "#006d32", "#26a641", "#39d353"], panel: "#0d1117",
+    empty: "#161b22", levels: ["#161b22", "#0e4429", "#006d32", "#26a641", "#39d353"],
     text: "#8b949e", head: "#d2a8ff", tail: "#6e40c9",
     starFront: "#ffe066", starEdge: "#b8860b", starBack: "#8a6508", ring: "#ffd33d", bar: "#a371f7",
   },
   light: {
-    empty: "#ebedf0", levels: ["#ebedf0", "#9be9a8", "#40c463", "#30a14e", "#216e39"], panel: "#ffffff",
+    empty: "#ebedf0", levels: ["#ebedf0", "#9be9a8", "#40c463", "#30a14e", "#216e39"],
     text: "#57606a", head: "#6639ba", tail: "#b392f0",
     starFront: "#ffcc00", starEdge: "#c28a00", starBack: "#8f6400", ring: "#e0a800", bar: "#8250df",
   },
 };
 
+/* ---- finale geometry: the total as a 5x7 pixel number, built from bouncing fragments ---- */
+
+const GLYPH = {
+  0: [".###.", "#...#", "#..##", "#.#.#", "##..#", "#...#", ".###."],
+  1: ["..#..", ".##..", "..#..", "..#..", "..#..", "..#..", ".###."],
+  2: [".###.", "#...#", "....#", "...#.", "..#..", ".#...", "#####"],
+  3: [".###.", "#...#", "....#", "..##.", "....#", "#...#", ".###."],
+  4: ["...#.", "..##.", ".#.#.", "#..#.", "#####", "...#.", "...#."],
+  5: ["#####", "#....", "####.", "....#", "....#", "#...#", ".###."],
+  6: ["..##.", ".#...", "#....", "####.", "#...#", "#...#", ".###."],
+  7: ["#####", "....#", "...#.", "..#..", ".#...", ".#...", ".#..."],
+  8: [".###.", "#...#", "#...#", ".###.", "#...#", "#...#", ".###."],
+  9: [".###.", "#...#", "#...#", ".####", "....#", "...#.", ".##.."],
+  ",": ["..", "..", "..", "..", "..", ".#", "#."],
+};
+
+const totalStr = total.toLocaleString("en-US");
+const { pts, PB } = (() => {
+  const glyphs = [...totalStr].map((ch) => GLYPH[ch]).filter(Boolean);
+  const cols = glyphs.reduce((a, g) => a + g[0].length, 0) + glyphs.length - 1;
+  let size = 7;
+  while (size > 3 && cols * (size + 1) - 1 > gridW - 40) size--;
+  const pitch = size + 1;
+  const wpx = cols * pitch - 1, hpx = 7 * pitch - 1;
+  const x0 = WIDTH / 2 - wpx / 2, y0 = TOP + gridH / 2 - hpx / 2 + 6;
+  const out = [];
+  let cc = 0;
+  for (const g of glyphs) {
+    g.forEach((row, y) => [...row].forEach((ch, x) => {
+      if (ch === "#") out.push({ x: x0 + (cc + x) * pitch + size / 2, y: y0 + y * pitch + size / 2 });
+    }));
+    cc += g[0].length + 1;
+  }
+  return { pts: out, PB: size };
+})();
+
+// where each body segment sits when the snake stops (head at index 0)
+const formation = [];
+for (let i = 0; i < maxL; i++) formation.push({ x: cx(route[N - 1 - i].c), y: cy(route[N - 1 - i].r) });
+
+// bounce physics inside the grid rectangle
+const bx0 = PAD + PB / 2, bx1 = PAD + gridW - PB / 2, by0 = TOP + PB / 2, by1 = TOP + gridH - PB / 2;
+function simulate(x, y, vx, vy) {
+  const G = 900, REST = 0.72, DT = 1 / 240, EVERY = 12; // sample every 0.05s
+  const out = [];
+  const steps = Math.round(FLY / DT);
+  for (let i = 1; i <= steps; i++) {
+    vy += G * DT; x += vx * DT; y += vy * DT;
+    if (x < bx0) { x = 2 * bx0 - x; vx = -vx * REST; } else if (x > bx1) { x = 2 * bx1 - x; vx = -vx * REST; }
+    if (y < by0) { y = 2 * by0 - y; vy = -vy * REST; }
+    else if (y > by1) { y = 2 * by1 - y; vy = -vy * REST; vx *= 0.96; }
+    if (i % EVERY === 0) out.push({ t: (i * DT), x, y });
+  }
+  return out;
+}
+
+const rf = mulberry(777);
+const order = pts.map((_, i) => i);
+for (let i = order.length - 1; i > 0; i--) { const j = Math.floor(rf() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; }
+const frags = pts.map((_, j) => {
+  const base = formation[j % maxL];
+  const x0 = base.x + (rf() - 0.5) * 4, y0 = base.y + (rf() - 0.5) * 4;
+  const ang = rf() * Math.PI * 2, sp = 250 + rf() * 450;
+  const samples = simulate(x0, y0, Math.cos(ang) * sp, Math.sin(ang) * sp - 120);
+  const target = pts[order[j]];
+  return { x0, y0, samples, tx: target.x, ty: target.y, rot: 360 * [-2, -1, 1, 2][Math.floor(rf() * 4)] };
+});
+
+function fragKF(j, f) {
+  const span = tSettleEnd - tBlast;
+  const R = (t) => num(f.rot * Math.min(1, t / span));
+  const tr = (x, y, rot) => `transform:translate(${n1(x)}px,${n1(y)}px) rotate(${rot}deg)`;
+  const st = [];
+  st.push([0, `opacity:0;${tr(f.x0, f.y0, 0)}`]);
+  st.push([Math.max(0, pct(tBlast) - E), `opacity:0;${tr(f.x0, f.y0, 0)}`]);
+  st.push([pct(tBlast), `opacity:1;${tr(f.x0, f.y0, 0)}`]);
+  f.samples.forEach((s, i) => {
+    const last = i === f.samples.length - 1;
+    st.push([pct(tBlast + s.t), `${tr(s.x, s.y, R(s.t))}${last ? ";animation-timing-function:cubic-bezier(.2,.7,.4,1)" : ""}`]);
+  });
+  st.push([pct(tFlyEnd + SETTLE * 0.5), `${tr(f.tx, f.ty - 18, R(FLY + SETTLE * 0.5))};animation-timing-function:cubic-bezier(.55,0,1,.45)`]);
+  st.push([pct(tSettleEnd), `${tr(f.tx, f.ty, f.rot)};animation-timing-function:cubic-bezier(.2,.7,.4,1)`]);
+  st.push([pct(tSettleEnd + 0.1), `${tr(f.tx, f.ty - 4, f.rot)};animation-timing-function:cubic-bezier(.55,0,1,.45)`]);
+  st.push([pct(tSettleEnd + 0.2), `${tr(f.tx, f.ty, f.rot)}`]);
+  st.push([pct(tFadeStart), "opacity:1"]);
+  st.push([pct(tFadeEnd), "opacity:0"]);
+  st.push([100, `opacity:0;${tr(f.tx, f.ty, f.rot)}`]);
+  return `@keyframes fx${j}{${st.map(([p, c]) => `${pf(p)}{${c}}`).join("")}}`;
+}
+
 function starPoints(R = 1, r = 0.46) {
-  const pts = [];
+  const out = [];
   for (let i = 0; i < 10; i++) {
     const a = -Math.PI / 2 + (i * Math.PI) / 5;
     const rad = i % 2 === 0 ? R : r;
-    pts.push(`${num(Math.cos(a) * rad)},${num(Math.sin(a) * rad)}`);
+    out.push(`${num(Math.cos(a) * rad)},${num(Math.sin(a) * rad)}`);
   }
-  return pts.join(" ");
+  return out.join(" ");
 }
 
 // opacity 1 only between a% and b% of the loop
@@ -445,13 +577,15 @@ function windowKF(name, a, b) {
   return `@keyframes ${name}{${s.join("")}}`;
 }
 
-// visible from a%, fades out between fs% and fe%
-function visKF(name, a, fs, fe) {
-  const s = [];
-  if (a <= 0) s.push("0%{opacity:1}");
-  else s.push(`0%,${pf(a - E)}{opacity:0}`, `${pf(a)}{opacity:1}`);
-  s.push(`${pf(fs)}{opacity:1}`, `${pf(fe)},100%{opacity:0}`);
-  return `@keyframes ${name}{${s.join("")}}`;
+// opacity that jumps to the given values at the given times (seconds)
+function stepsKF(name, init, trans) {
+  let s = `0%{opacity:${init}}`, prev = init;
+  for (const [t, v] of trans) {
+    const p = pct(t);
+    s += `${pf(Math.max(0, p - E))}{opacity:${prev}}${pf(p)}{opacity:${v}}`;
+    prev = v;
+  }
+  return `@keyframes ${name}{${s}100%{opacity:${prev}}}`;
 }
 
 // food: visible, then fades out just as the head arrives
@@ -469,33 +603,33 @@ function burstKF(name, tEat) {
 function buildSvg(pal) {
   const css = [];
   const body = [];
-  const EASE_OUT = "cubic-bezier(.1,.8,.25,1)";
 
   css.push(
     `text{font:600 11px -apple-system,"Segoe UI",Helvetica,Arial,sans-serif;fill:${pal.text}}`,
-    `.big{font:800 30px -apple-system,"Segoe UI",Helvetica,Arial,sans-serif;fill:${pal.ring}}`,
-    `.e,.n,.sp,.b,.pb,.w,.m,.r,.fin{animation-iteration-count:infinite;animation-timing-function:linear}`,
-    `.e,.n,.b,.pb,.w,.m,.r,.fin{animation-duration:${num(P)}s}`,
-    `.m{animation-name:mv;animation-fill-mode:both}`,
-    `.n{opacity:0}`,
+    `.e,.n,.sp,.b,.pb,.w,.m,.bb,.f,.fc,.lab{animation-iteration-count:infinite;animation-timing-function:linear}`,
+    `.e,.n,.b,.pb,.w,.m,.bb,.f,.fc,.lab{animation-duration:${num(P)}s}`,
+    `.m{animation-name:mvA}`,
+    `.m,.bb{animation-fill-mode:both}`,
+    `.n,.f,.lab{opacity:0}`,
     `.sp{animation-duration:2.8s}`,
     `.b{opacity:0;transform-box:fill-box;transform-origin:center}`,
     `.pb{transform-box:fill-box;transform-origin:left center;animation-name:pg}`,
-    `.fin{opacity:0;transform-box:fill-box;transform-origin:center;animation-name:fin}`
+    `.lab{animation-name:lab}`
   );
 
-  // --- snake head path (only keep corners; linear interpolation does the rest)
-  const mv = [];
-  for (let k = 0; k < N; k++) {
-    let keep = k === 0 || k === N - 1;
-    if (!keep) {
-      const a = route[k - 1], b = route[k], c = route[k + 1];
-      keep = b.c - a.c !== c.c - b.c || b.r - a.r !== c.r - b.r;
-    }
-    if (keep) mv.push(`${pf(pct(k * STEP))}{transform:translate(${cx(route[k].c)}px,${cy(route[k].r)}px)}`);
+  // --- snake head path. Part A (shared): the route up to step kA. Part B (per segment):
+  //     the last few steps, so every segment stops exactly where the body ends up (snake stays intact).
+  const kA = Math.max(0, N - maxL);
+  const dirChange = (k) => {
+    const a = route[k - 1], b = route[k], c = route[k + 1];
+    return b.c - a.c !== c.c - b.c || b.r - a.r !== c.r - b.r;
+  };
+  const mvA = [];
+  for (let k = 0; k <= kA; k++) {
+    if (k === 0 || k === kA || dirChange(k)) mvA.push(`${pf(pct(k * STEP))}{transform:translate(${cx(route[k].c)}px,${cy(route[k].r)}px)}`);
   }
-  mv.push(`100%{transform:translate(${cx(route[N - 1].c)}px,${cy(route[N - 1].r)}px)}`);
-  css.push(`@keyframes mv{${mv.join("")}}`);
+  mvA.push(`100%{transform:translate(${cx(route[kA].c)}px,${cy(route[kA].r)}px)}`);
+  css.push(`@keyframes mvA{${mvA.join("")}}`);
 
   // --- 3D star spin: stacked slabs offset by sin(theta), squashed by cos(theta)
   const SAMPLES = 24, DEPTH = 0.16, Z = [-1, -0.33, 0.33, 1];
@@ -546,48 +680,69 @@ function buildSvg(pal) {
   }
   body.push(...rings);
 
-  // --- snake. Every segment follows the same head path, delayed by i steps.
-  //     w = wrapper (appear / scatter / fade), m = follows the path, r = rect (spins when scattered)
-  const rnd = mulberry(1234);
-  const endX = cx(route[N - 1].c), endY = cy(route[N - 1].r);
-  const a0 = pct(tRun), a1 = pct(tScatterEnd), fs = pct(tFadeStart), fe = pct(tFadeEnd);
+  // --- snake. Every segment follows the head's path, i steps later.
+  //     w = appear / blink / vanish at the blast, m = shared route (A), bb = last steps (B), rect = the segment
   for (let i = maxL - 1; i >= 0; i--) {
     const size = i === 0 ? CELL + 1 : Math.max(6, CELL - 1 - i * 0.15);
     const col = mix(pal.head, pal.tail, maxL > 1 ? i / (maxL - 1) : 0);
-    const tx = PAD + 10 + rnd() * (gridW - 20), ty = TOP + 6 + rnd() * (gridH - 12);
-    const dx = num(tx - endX), dy = num(ty - endY), rot = Math.round((rnd() - 0.5) * 720);
-    css.push(visKF(`v${i}`, pct(T[i] * STEP), fs, fe));
-    css.push(`@keyframes x${i}{0%,${pf(a0)}{transform:translate(0px,0px);animation-timing-function:${EASE_OUT}}${pf(a1)},100%{transform:translate(${dx}px,${dy}px)}}`);
-    css.push(`@keyframes q${i}{0%,${pf(a0)}{transform:rotate(0deg);animation-timing-function:${EASE_OUT}}${pf(a1)},100%{transform:rotate(${rot}deg)}}`);
+    const a = T[i] * STEP;
+    css.push(stepsKF(`v${i}`, a <= 0 ? 1 : 0, [
+      ...(a > 0 ? [[a, 1]] : []),
+      [tB0, 0.1], [tB0 + BL, 1], [tB0 + 2 * BL, 0.1], [tB0 + 3 * BL, 1], // blink twice
+      [tBlast, 0],                                                        // boom
+    ]));
+    const fi = N - 1 - i;
+    const sb = [];
+    if (fi > kA) {
+      sb.push(`0%,${pf(pct(kA * STEP))}{transform:translate(0px,0px)}`);
+      for (let k = kA + 1; k <= fi; k++) {
+        if (k === fi || dirChange(k))
+          sb.push(`${pf(pct(k * STEP))}{transform:translate(${cx(route[k].c) - cx(route[kA].c)}px,${cy(route[k].r) - cy(route[kA].r)}px)}`);
+      }
+      sb.push(`100%{transform:translate(${cx(route[fi].c) - cx(route[kA].c)}px,${cy(route[fi].r) - cy(route[kA].r)}px)}`);
+    } else {
+      sb.push("0%,100%{transform:translate(0px,0px)}");
+    }
+    css.push(`@keyframes sb${i}{${sb.join("")}}`);
     body.push(
-      `<g class="w" style="animation-name:v${i},x${i}"><g class="m" style="animation-delay:${num(i * STEP)}s">` +
-        `<rect class="r" style="animation-name:q${i}" x="${num(-size / 2)}" y="${num(-size / 2)}" width="${num(size)}" height="${num(size)}" rx="${num(size * 0.32)}" fill="${col}"/></g></g>`
+      `<g class="w" style="animation-name:v${i}"><g class="m" style="animation-delay:${num(i * STEP)}s">` +
+        `<g class="bb" style="animation-name:sb${i};animation-delay:${num(i * STEP)}s">` +
+        `<rect x="${num(-size / 2)}" y="${num(-size / 2)}" width="${num(size)}" height="${num(size)}" rx="${num(size * 0.32)}" fill="${col}"/></g></g></g>`
     );
   }
 
+  // --- BOOM: flash at the head
+  css.push(
+    `@keyframes flash{0%,${pf(pct(tBlast))}{opacity:0;transform:scale(.3)}${pf(pct(tBlast) + E)}{opacity:1;transform:scale(.3)}${pf(pct(tBlast + 0.45))},100%{opacity:0;transform:scale(6)}}`
+  );
+  body.push(`<circle class="b" style="animation-name:flash" cx="${formation[0].x}" cy="${formation[0].y}" r="9" fill="${pal.ring}"/>`);
+
+  // --- fragments: fly, bounce off the borders, fall into place as the total number
+  for (let k = 0; k < 4; k++) {
+    css.push(`@keyframes g${k}{0%,${pf(pct(tSettleEnd - 0.3))}{fill:${mix(pal.head, pal.tail, k / 3)}}${pf(pct(tSettleEnd))},100%{fill:${pal.ring}}}`);
+  }
+  frags.forEach((f, j) => {
+    css.push(fragKF(j, f));
+    body.push(
+      `<g class="f" style="animation-name:fx${j}"><rect class="fc" style="animation-name:g${j % 4}" x="${-PB / 2}" y="${-PB / 2}" width="${PB}" height="${PB}" rx="1.5"/></g>`
+    );
+  });
+  css.push(
+    `@keyframes lab{0%,${pf(pct(tSettleEnd))}{opacity:0}${pf(pct(tSettleEnd + 0.4))},${pf(pct(tFadeStart))}{opacity:1}${pf(pct(tFadeEnd))},100%{opacity:0}}`
+  );
+  body.push(`<text class="lab" x="${WIDTH / 2}" y="${TOP + 14}" text-anchor="middle">TOTAL CONTRIBUTIONS</text>`);
+
   // --- HUD: stats (static) + live length counter + progress bar
-  body.push(`<text x="${PAD}" y="26">${total.toLocaleString("en-US")} contributions  ·  ★ = days with ${STAR_MIN === Infinity ? "-" : STAR_MIN}+ (grow x${GROW_STAR / GROW_NORMAL})  ·  ${starCount} stars</text>`);
+  body.push(`<text x="${PAD}" y="26">${totalStr} contributions  ·  ★ = days with ${STAR_MIN === Infinity ? "-" : STAR_MIN}+ (grow x${GROW_STAR / GROW_NORMAL})  ·  ${starCount} stars</text>`);
   body.push(`<text x="${WIDTH - PAD - 30}" y="26" text-anchor="end">SNAKE LENGTH</text>`);
-  for (let n = 1; n <= maxL; n++) {
-    css.push(windowKF(`l${n}`, n === 1 ? 0 : pct(T[n - 1] * STEP), n < maxL ? pct(T[n] * STEP) : 100));
+  for (let n = 3; n <= maxL; n++) {
+    css.push(windowKF(`l${n}`, n === 3 ? 0 : pct(T[n - 1] * STEP), n < maxL ? pct(T[n] * STEP) : 100));
     body.push(`<text class="n" style="animation-name:l${n}" x="${WIDTH - PAD - 24}" y="26" fill="${pal.ring}">${n}</text>`);
   }
   const barY = TOP + gridH + 16;
-  css.push(`@keyframes pg{0%{transform:scaleX(.001)}${pf(pct(tRun))}{transform:scaleX(1)}100%{transform:scaleX(1)}}`);
+  css.push(`@keyframes pg{0%{transform:scaleX(.001)}${pf(pct(tTouch))}{transform:scaleX(1)}100%{transform:scaleX(1)}}`);
   body.push(`<rect x="${PAD}" y="${barY}" width="${gridW}" height="4" rx="2" fill="${pal.empty}"/>`);
   body.push(`<rect class="pb" x="${PAD}" y="${barY}" width="${gridW}" height="4" rx="2" fill="${pal.bar}"/>`);
-
-  // --- finale: total contributions pops up in the middle of the scattered pieces
-  const mx = WIDTH / 2, my = TOP + gridH / 2, bw = 270, bh = 66;
-  css.push(
-    `@keyframes fin{0%,${pf(pct(tNum))}{opacity:0;transform:scale(.6);animation-timing-function:cubic-bezier(.2,1.4,.4,1)}` +
-      `${pf(pct(tNum + 0.45))}{opacity:1;transform:scale(1)}${pf(fs)}{opacity:1;transform:scale(1)}${pf(fe)},100%{opacity:0;transform:scale(1)}}`
-  );
-  body.push(
-    `<g class="fin"><rect x="${mx - bw / 2}" y="${my - bh / 2}" width="${bw}" height="${bh}" rx="12" fill="${pal.panel}" fill-opacity=".92" stroke="${pal.empty}" stroke-width="2"/>` +
-      `<text x="${mx}" y="${my - 10}" text-anchor="middle">TOTAL CONTRIBUTIONS</text>` +
-      `<text class="big" x="${mx}" y="${my + 22}" text-anchor="middle">${total.toLocaleString("en-US")}</text></g>`
-  );
 
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${WIDTH} ${HEIGHT}" width="${WIDTH}" height="${HEIGHT}">
 <title>Contribution Snake Game</title>
@@ -605,11 +760,19 @@ await writeFile(`${OUT_DIR}/github-contribution-grid-snake-dark.svg`, buildSvg(P
 if (env.DEBUG) {
   await writeFile(
     `${OUT_DIR}/debug.json`,
-    JSON.stringify({ route, L, eatOrder: [...eatStep].sort((a, b) => a[1] - b[1]).map(([c, k]) => ({ count: c.count, star: c.star, k })) })
+    JSON.stringify({
+      route, L, PB, total, WIDTH, HEIGHT, TOP, gridH, gridW, PAD,
+      bounds: [bx0, bx1, by0, by1],
+      eatOrder: [...eatStep].sort((a, b) => a[1] - b[1]).map(([c, k]) => ({ count: c.count, star: c.star, k })),
+      frags: frags.map((f) => ({ tx: f.tx, ty: f.ty, s: f.samples.map((q) => [q.x, q.y]) })),
+      formation,
+    })
   );
 }
 
+const last = route[N - 1];
 console.log(
-  `Snake game built: ${eatStep.size}/${foods.length} food eaten (${starCount} stars, threshold ${STAR_MIN}), ` +
-    `${buckets.length} buckets, legs ${JSON.stringify(legStats)}, route ${N} steps @ ${STEP.toFixed(3)}s, max length ${maxL}, loop ${P.toFixed(1)}s -> ${OUT_DIR}/`
+  `Snake game built: ${eatStep.size}/${foods.length} food eaten (${starCount} stars, threshold ${STAR_MIN}), ${buckets.length} count-groups, ` +
+    `legs ${JSON.stringify(legStats)}, route ${N} steps @ ${STEP.toFixed(3)}s, length 3 -> ${maxL}, ends on border cell (${last.c},${last.r}): ${isBorder(last.c, last.r)}, ` +
+    `${frags.length} fragments for "${totalStr}", loop ${P.toFixed(1)}s -> ${OUT_DIR}/`
 );

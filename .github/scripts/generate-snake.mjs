@@ -6,16 +6,17 @@
  *     HIGHEST (all 1s, then all 2s, then 3s ...). Stars (big days) come last.
  *  3. Normal food grows it by GROW_NORMAL (1), a star by GROW_STAR (2x).
  *  4. It never runs into itself (path-finding around its own body).
- *  5. After the last contribution it runs to the nearest border, blinks twice,
- *     explodes like a bomb, the pieces bounce off the borders and fall into place
- *     as the TOTAL contribution number. Then everything restarts.
+ *  5. After the last contribution it runs to the nearest border, blinks twice and
+ *     explodes. The snake's own boxes bounce around inside the grid border and,
+ *     one by one, drop into grid squares that light up like a digital clock:
+ *     the TOTAL contribution count, drawn with the graph's own pixels.
  *
  * Env vars (all optional except GH_USER + GITHUB_TOKEN, unless MOCK=1)
  *   GH_USER, GITHUB_TOKEN   who to fetch / auth for the GraphQL API
  *   STAR_MIN                min contributions/day to become a star (default: auto, top ~15% of active days, at least 3)
  *   GROW_NORMAL, GROW_STAR  growth per food (default 1 / 2)
  *   MAX_SNAKE_LENGTH        cap on snake length (default 30)
- *   TARGET_SECONDS          aim for the eating phase to last about this long (default 35)
+ *   TARGET_SECONDS          aim for the eating phase to last about this long (default 60)
  *   STEP_SECONDS            force seconds per grid step (overrides TARGET_SECONDS)
  *   OUT_DIR                 output folder (default dist)
  *   MOCK=1                  use random fake data (for local preview)
@@ -29,7 +30,7 @@ const OUT_DIR = env.OUT_DIR || "dist";
 const MAX_LEN = Math.max(2, Number(env.MAX_SNAKE_LENGTH || 30));
 const GROW_NORMAL = Number(env.GROW_NORMAL || 1);
 const GROW_STAR = Number(env.GROW_STAR || GROW_NORMAL * 2);
-const TARGET_SECONDS = Number(env.TARGET_SECONDS || 35);
+const TARGET_SECONDS = Number(env.TARGET_SECONDS || 60);
 
 /* ------------------------------------------------------------------ data */
 
@@ -38,7 +39,7 @@ async function fetchCalendar() {
   if (!USER || !TOKEN) throw new Error("GH_USER and GITHUB_TOKEN are required (or set MOCK=1).");
 
   const query = `query($login:String!){user(login:$login){contributionsCollection{contributionCalendar{
-    totalContributions weeks{contributionDays{date contributionCount contributionLevel weekday}}}}}}`;
+    totalContributions restrictedContributionsCount weeks{contributionDays{date contributionCount contributionLevel weekday}}}}}}`;
 
   const res = await fetch("https://api.github.com/graphql", {
     method: "POST",
@@ -57,6 +58,7 @@ async function fetchCalendar() {
   const LEVEL = { NONE: 0, FIRST_QUARTILE: 1, SECOND_QUARTILE: 2, THIRD_QUARTILE: 3, FOURTH_QUARTILE: 4 };
   return {
     total: cal.totalContributions,
+    restricted: cal.restrictedContributionsCount,
     weeks: cal.weeks.map((w) =>
       w.contributionDays.map((d) => ({
         date: d.date,
@@ -107,7 +109,7 @@ function starThreshold(days) {
 
 /* ------------------------------------------------------------------ game */
 
-const { total, weeks } = await fetchCalendar();
+const { total, weeks, restricted = 0 } = await fetchCalendar();
 const W = weeks.length;
 const grid = weeks.map((days, c) => {
   const col = [];
@@ -422,7 +424,8 @@ const maxL = L[N - 1];
 
 /* -------------------------------------------------------------- rendering */
 
-const STEP = env.STEP_SECONDS ? Number(env.STEP_SECONDS) : Math.min(0.09, Math.max(0.03, TARGET_SECONDS / N));
+// slower than before: ~0.1s per grid step (never faster than 0.05s, never slower than 0.12s)
+const STEP = env.STEP_SECONDS ? Number(env.STEP_SECONDS) : Math.min(0.12, Math.max(0.05, TARGET_SECONDS / N));
 
 const CELL = 12, GAP = 3, PITCH = CELL + GAP, PAD = 20, TOP = 44, BOTTOM = 36;
 const gridW = W * PITCH - GAP, gridH = 7 * PITCH - GAP;
@@ -430,18 +433,7 @@ const WIDTH = PAD * 2 + gridW, HEIGHT = TOP + gridH + BOTTOM;
 const cx = (c) => PAD + c * PITCH + CELL / 2;
 const cy = (r) => TOP + r * PITCH + CELL / 2;
 
-// timeline (seconds): run -> touch border -> blink x2 -> BOOM -> bounce -> fall into place -> hold -> fade -> restart
-const tTouch = (N - 1) * STEP;
-const BL = 0.16;
-const tB0 = tTouch + 0.2;
-const tBlast = tB0 + 4 * BL + 0.1;
-const FLY = 1.7, SETTLE = 0.8;
-const tFlyEnd = tBlast + FLY;
-const tSettleEnd = tFlyEnd + SETTLE;
-const tFadeStart = tSettleEnd + 4;
-const tFadeEnd = tFadeStart + 0.7;
-const P = tFadeEnd + 0.6;
-
+let P = 1; // loop length, set below
 const pct = (t) => (t / P) * 100;
 const num = (v) => +v.toFixed(4);
 const n1 = (v) => +v.toFixed(1);
@@ -467,7 +459,10 @@ const PALETTES = {
   },
 };
 
-/* ---- finale geometry: the total as a 5x7 pixel number, built from bouncing fragments ---- */
+const segSize = (i) => (i === 0 ? CELL + 1 : Math.max(6, CELL - 1 - i * 0.15));
+const segCol = (pal, i) => mix(pal.head, pal.tail, maxL > 1 ? i / (maxL - 1) : 0);
+
+/* ---- finale: the total, drawn with the graph's own squares (5x7 digital-clock font) ---- */
 
 const GLYPH = {
   0: [".###.", "#...#", "#..##", "#.#.#", "##..#", "#...#", ".###."],
@@ -484,77 +479,108 @@ const GLYPH = {
 };
 
 const totalStr = total.toLocaleString("en-US");
-const { pts, PB } = (() => {
+const numberCells = (() => {
   const glyphs = [...totalStr].map((ch) => GLYPH[ch]).filter(Boolean);
   const cols = glyphs.reduce((a, g) => a + g[0].length, 0) + glyphs.length - 1;
-  let size = 7;
-  while (size > 3 && cols * (size + 1) - 1 > gridW - 40) size--;
-  const pitch = size + 1;
-  const wpx = cols * pitch - 1, hpx = 7 * pitch - 1;
-  const x0 = WIDTH / 2 - wpx / 2, y0 = TOP + gridH / 2 - hpx / 2 + 6;
+  const c0 = Math.max(0, Math.floor((W - cols) / 2));
   const out = [];
   let cc = 0;
   for (const g of glyphs) {
-    g.forEach((row, y) => [...row].forEach((ch, x) => {
-      if (ch === "#") out.push({ x: x0 + (cc + x) * pitch + size / 2, y: y0 + y * pitch + size / 2 });
+    g.forEach((row, r) => [...row].forEach((ch, x) => {
+      if (ch === "#" && grid[c0 + cc + x]?.[r]) out.push({ c: c0 + cc + x, r });
     }));
     cc += g[0].length + 1;
   }
-  return { pts: out, PB: size };
+  return out.sort((a, b) => a.c - b.c || a.r - b.r); // they will land left -> right
 })();
+
+/* ---- timeline (seconds): run -> touch border -> blink x2 -> BOOM -> bounce -> drop in one by one -> hold -> fade -> restart ---- */
+
+const tTouch = (N - 1) * STEP;
+const BL = 0.16;
+const tB0 = tTouch + 0.2;
+const tBlast = tB0 + 4 * BL + 0.1;
+const BOUNCE_MIN = 1.5, APPROACH = 0.55;
+const FR = numberCells.length;
+const PN = Math.max(FR, maxL);                                   // pieces = the snake's boxes (+ splits if the number needs more)
+const stagger = Math.min(0.12, Math.max(0.03, 3.6 / Math.max(1, FR)));
+const tFirst = tBlast + BOUNCE_MIN + APPROACH;
+const landNumber = (rank) => tFirst + rank * stagger;
+const landSurplus = (k) => tFirst - 0.3 + k * 0.03;
+const tLastLand = FR ? landNumber(FR - 1) : tFirst;
+const tSettleEnd = tLastLand + 0.2;
+const tFadeStart = tSettleEnd + 4;
+const tFadeEnd = tFadeStart + 0.7;
+P = tFadeEnd + 0.6;
 
 // where each body segment sits when the snake stops (head at index 0)
 const formation = [];
 for (let i = 0; i < maxL; i++) formation.push({ x: cx(route[N - 1 - i].c), y: cy(route[N - 1 - i].r) });
 
-// bounce physics inside the grid rectangle
-const bx0 = PAD + PB / 2, bx1 = PAD + gridW - PB / 2, by0 = TOP + PB / 2, by1 = TOP + gridH - PB / 2;
-function simulate(x, y, vx, vy) {
-  const G = 900, REST = 0.72, DT = 1 / 240, EVERY = 12; // sample every 0.05s
+// bounce box = the graph's border (centres of the outermost squares)
+const bx0 = cx(0), bx1 = cx(W - 1), by0 = cy(0), by1 = cy(6);
+
+// ballistic-free ricochet: constant speed, perfect reflection, one keyframe per wall hit
+function bounce(x, y, vx, vy, Tmax) {
   const out = [];
-  const steps = Math.round(FLY / DT);
-  for (let i = 1; i <= steps; i++) {
-    vy += G * DT; x += vx * DT; y += vy * DT;
-    if (x < bx0) { x = 2 * bx0 - x; vx = -vx * REST; } else if (x > bx1) { x = 2 * bx1 - x; vx = -vx * REST; }
-    if (y < by0) { y = 2 * by0 - y; vy = -vy * REST; }
-    else if (y > by1) { y = 2 * by1 - y; vy = -vy * REST; vx *= 0.96; }
-    if (i % EVERY === 0) out.push({ t: (i * DT), x, y });
+  let t = 0;
+  x = Math.min(bx1, Math.max(bx0, x)); y = Math.min(by1, Math.max(by0, y));
+  for (let guard = 0; t < Tmax - 1e-9 && guard < 600; guard++) {
+    const tx = vx > 0 ? (bx1 - x) / vx : vx < 0 ? (bx0 - x) / vx : Infinity;
+    const ty = vy > 0 ? (by1 - y) / vy : vy < 0 ? (by0 - y) / vy : Infinity;
+    const dt = Math.max(0, Math.min(tx, ty, Tmax - t));
+    x += vx * dt; y += vy * dt; t += dt;
+    if (dt === tx) { x = vx > 0 ? bx1 : bx0; vx = -vx; }
+    if (dt === ty) { y = vy > 0 ? by1 : by0; vy = -vy; }
+    if (dt > 1e-6 || out.length === 0) out.push({ t, x, y });
   }
   return out;
 }
 
 const rf = mulberry(777);
-const order = pts.map((_, i) => i);
-for (let i = order.length - 1; i > 0; i--) { const j = Math.floor(rf() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; }
-const frags = pts.map((_, j) => {
-  const base = formation[j % maxL];
-  const x0 = base.x + (rf() - 0.5) * 4, y0 = base.y + (rf() - 0.5) * 4;
-  const ang = rf() * Math.PI * 2, sp = 250 + rf() * 450;
-  const samples = simulate(x0, y0, Math.cos(ang) * sp, Math.sin(ang) * sp - 120);
-  const target = pts[order[j]];
-  return { x0, y0, samples, tx: target.x, ty: target.y, rot: 360 * [-2, -1, 1, 2][Math.floor(rf() * 4)] };
+const shuffle = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rf() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+
+// landing slots: lit squares of the number, plus (if the snake has more boxes than the number needs)
+// some plain squares where the spare boxes sink back into the graph
+const slots = numberCells.map((p, rank) => ({ x: cx(p.c), y: cy(p.r), lit: true, land: landNumber(rank) }));
+{
+  const used = new Set(numberCells.map((p) => key(p.c, p.r)));
+  const free = shuffle(allDays.filter((d) => !used.has(key(d.c, d.row))));
+  for (let k = 0; k < PN - FR; k++) slots.push({ x: cx(free[k % free.length].c), y: cy(free[k % free.length].row), lit: false, land: landSurplus(k) });
+}
+shuffle(slots);
+
+const pieces = Array.from({ length: PN }, (_, j) => {
+  const src = j % maxL;
+  const slot = slots[j];
+  const sp = 320 + rf() * 380, ang = rf() * Math.PI * 2;
+  let vx = Math.cos(ang) * sp, vy = Math.sin(ang) * sp;
+  if (Math.abs(vy) < 90) vy = (rf() < 0.5 ? -1 : 1) * (90 + rf() * 80);
+  const tt = slot.land - tBlast;                       // blast -> landing
+  const w0 = (rf() < 0.5 ? -1 : 1) * (300 + rf() * 400);
+  const R = 360 * (Math.round((w0 * tt) / 360) || 1);   // whole turns, so it lands perfectly square
+  return { src, slot, tt, R, events: bounce(formation[src].x, formation[src].y, vx, vy, tt - APPROACH), x0: formation[src].x, y0: formation[src].y };
 });
 
-function fragKF(j, f) {
-  const span = tSettleEnd - tBlast;
-  const R = (t) => num(f.rot * Math.min(1, t / span));
-  const tr = (x, y, rot) => `transform:translate(${n1(x)}px,${n1(y)}px) rotate(${rot}deg)`;
+function pieceKF(j, pc) {
+  const { slot, tt, R } = pc;
+  const k = CELL / segSize(pc.src);
+  const tr = (x, y, rot, sc) => `transform:translate(${n1(x)}px,${n1(y)}px) rotate(${n1(rot)}deg) scale(${num(sc)})`;
   const st = [];
-  st.push([0, `opacity:0;${tr(f.x0, f.y0, 0)}`]);
-  st.push([Math.max(0, pct(tBlast) - E), `opacity:0;${tr(f.x0, f.y0, 0)}`]);
-  st.push([pct(tBlast), `opacity:1;${tr(f.x0, f.y0, 0)}`]);
-  f.samples.forEach((s, i) => {
-    const last = i === f.samples.length - 1;
-    st.push([pct(tBlast + s.t), `${tr(s.x, s.y, R(s.t))}${last ? ";animation-timing-function:cubic-bezier(.2,.7,.4,1)" : ""}`]);
+  st.push([0, `opacity:0;${tr(pc.x0, pc.y0, 0, 1)}`]);
+  st.push([Math.max(0, pct(tBlast) - E), `opacity:0;${tr(pc.x0, pc.y0, 0, 1)}`]);
+  st.push([pct(tBlast), `opacity:1;${tr(pc.x0, pc.y0, 0, 1)}`]);
+  pc.events.forEach((e, i) => {
+    const last = i === pc.events.length - 1;
+    st.push([pct(tBlast + e.t), `${tr(e.x, e.y, R * (e.t / tt), 1)}${last ? ";animation-timing-function:cubic-bezier(.45,0,.9,.6)" : ""}`]);
   });
-  st.push([pct(tFlyEnd + SETTLE * 0.5), `${tr(f.tx, f.ty - 18, R(FLY + SETTLE * 0.5))};animation-timing-function:cubic-bezier(.55,0,1,.45)`]);
-  st.push([pct(tSettleEnd), `${tr(f.tx, f.ty, f.rot)};animation-timing-function:cubic-bezier(.2,.7,.4,1)`]);
-  st.push([pct(tSettleEnd + 0.1), `${tr(f.tx, f.ty - 4, f.rot)};animation-timing-function:cubic-bezier(.55,0,1,.45)`]);
-  st.push([pct(tSettleEnd + 0.2), `${tr(f.tx, f.ty, f.rot)}`]);
+  st.push([pct(slot.land), `${tr(slot.x, slot.y, R, k)};animation-timing-function:cubic-bezier(.2,.7,.4,1)`]);
+  st.push([pct(slot.land + 0.08), `${tr(slot.x, slot.y - 3, R, k)};animation-timing-function:cubic-bezier(.55,0,1,.45)`]);
+  st.push([pct(slot.land + 0.16), `${tr(slot.x, slot.y, R, k)}`]);
   st.push([pct(tFadeStart), "opacity:1"]);
   st.push([pct(tFadeEnd), "opacity:0"]);
-  st.push([100, `opacity:0;${tr(f.tx, f.ty, f.rot)}`]);
-  return `@keyframes fx${j}{${st.map(([p, c]) => `${pf(p)}{${c}}`).join("")}}`;
+  st.push([100, `opacity:0;${tr(slot.x, slot.y, R, k)}`]);
+  return `@keyframes px${j}{${st.map(([p, c]) => `${pf(p)}{${c}}`).join("")}}`;
 }
 
 function starPoints(R = 1, r = 0.46) {
@@ -647,7 +673,7 @@ function buildSvg(pal) {
   const starPts = starPoints();
   const starR = CELL * 0.62;
 
-  // --- empty grid
+  // --- the graph (these squares are the "pixels")
   for (let c = 0; c < W; c++)
     for (let r = 0; r < 7; r++)
       if (grid[c]?.[r])
@@ -681,15 +707,14 @@ function buildSvg(pal) {
   body.push(...rings);
 
   // --- snake. Every segment follows the head's path, i steps later.
-  //     w = appear / blink / vanish at the blast, m = shared route (A), bb = last steps (B), rect = the segment
+  //     w = appear / blink / hand over at the blast, m = shared route (A), bb = last steps (B), rect = the segment box
   for (let i = maxL - 1; i >= 0; i--) {
-    const size = i === 0 ? CELL + 1 : Math.max(6, CELL - 1 - i * 0.15);
-    const col = mix(pal.head, pal.tail, maxL > 1 ? i / (maxL - 1) : 0);
+    const size = segSize(i);
     const a = T[i] * STEP;
     css.push(stepsKF(`v${i}`, a <= 0 ? 1 : 0, [
       ...(a > 0 ? [[a, 1]] : []),
       [tB0, 0.1], [tB0 + BL, 1], [tB0 + 2 * BL, 0.1], [tB0 + 3 * BL, 1], // blink twice
-      [tBlast, 0],                                                        // boom
+      [tBlast, 0],                                                        // boom: the boxes below take over at the same spot
     ]));
     const fi = N - 1 - i;
     const sb = [];
@@ -707,7 +732,7 @@ function buildSvg(pal) {
     body.push(
       `<g class="w" style="animation-name:v${i}"><g class="m" style="animation-delay:${num(i * STEP)}s">` +
         `<g class="bb" style="animation-name:sb${i};animation-delay:${num(i * STEP)}s">` +
-        `<rect x="${num(-size / 2)}" y="${num(-size / 2)}" width="${num(size)}" height="${num(size)}" rx="${num(size * 0.32)}" fill="${col}"/></g></g></g>`
+        `<rect x="${num(-size / 2)}" y="${num(-size / 2)}" width="${num(size)}" height="${num(size)}" rx="${num(size * 0.32)}" fill="${segCol(pal, i)}"/></g></g></g>`
     );
   }
 
@@ -717,29 +742,29 @@ function buildSvg(pal) {
   );
   body.push(`<circle class="b" style="animation-name:flash" cx="${formation[0].x}" cy="${formation[0].y}" r="9" fill="${pal.ring}"/>`);
 
-  // --- fragments: fly, bounce off the borders, fall into place as the total number
-  for (let k = 0; k < 4; k++) {
-    css.push(`@keyframes g${k}{0%,${pf(pct(tSettleEnd - 0.3))}{fill:${mix(pal.head, pal.tail, k / 3)}}${pf(pct(tSettleEnd))},100%{fill:${pal.ring}}}`);
-  }
-  frags.forEach((f, j) => {
-    css.push(fragKF(j, f));
+  // --- the snake's boxes: blast apart, ricochet around the graph's border, then drop one by one into the number
+  pieces.forEach((pc, j) => {
+    const size = segSize(pc.src);
+    const lit = pc.slot.lit ? pal.levels[4] : pal.empty;
+    css.push(pieceKF(j, pc));
+    css.push(`@keyframes gc${j}{0%,${pf(pct(pc.slot.land - 0.2))}{fill:${segCol(pal, pc.src)}}${pf(pct(pc.slot.land))},100%{fill:${lit}}}`);
     body.push(
-      `<g class="f" style="animation-name:fx${j}"><rect class="fc" style="animation-name:g${j % 4}" x="${-PB / 2}" y="${-PB / 2}" width="${PB}" height="${PB}" rx="1.5"/></g>`
+      `<g class="f" style="animation-name:px${j}"><rect class="fc" style="animation-name:gc${j}" x="${num(-size / 2)}" y="${num(-size / 2)}" width="${num(size)}" height="${num(size)}" rx="${num(size * 0.32)}"/></g>`
     );
   });
-  css.push(
-    `@keyframes lab{0%,${pf(pct(tSettleEnd))}{opacity:0}${pf(pct(tSettleEnd + 0.4))},${pf(pct(tFadeStart))}{opacity:1}${pf(pct(tFadeEnd))},100%{opacity:0}}`
-  );
-  body.push(`<text class="lab" x="${WIDTH / 2}" y="${TOP + 14}" text-anchor="middle">TOTAL CONTRIBUTIONS</text>`);
 
-  // --- HUD: stats (static) + live length counter + progress bar
-  body.push(`<text x="${PAD}" y="26">${totalStr} contributions  ·  ★ = days with ${STAR_MIN === Infinity ? "-" : STAR_MIN}+ (grow x${GROW_STAR / GROW_NORMAL})  ·  ${starCount} stars</text>`);
+  // --- caption under the graph (not on top of it)
+  css.push(`@keyframes lab{0%,${pf(pct(tSettleEnd))}{opacity:0}${pf(pct(tSettleEnd + 0.4))},${pf(pct(tFadeStart))}{opacity:1}${pf(pct(tFadeEnd))},100%{opacity:0}}`);
+  body.push(`<text class="lab" x="${WIDTH / 2}" y="${TOP + gridH + 32}" text-anchor="middle">CONTRIBUTIONS IN THE LAST YEAR</text>`);
+
+  // --- HUD: legend + live length counter + progress bar
+  body.push(`<text x="${PAD}" y="26">★ = days with ${STAR_MIN === Infinity ? "-" : STAR_MIN}+ contributions (grow x${GROW_STAR / GROW_NORMAL})  ·  ${starCount} stars</text>`);
   body.push(`<text x="${WIDTH - PAD - 30}" y="26" text-anchor="end">SNAKE LENGTH</text>`);
   for (let n = 3; n <= maxL; n++) {
     css.push(windowKF(`l${n}`, n === 3 ? 0 : pct(T[n - 1] * STEP), n < maxL ? pct(T[n] * STEP) : 100));
     body.push(`<text class="n" style="animation-name:l${n}" x="${WIDTH - PAD - 24}" y="26" fill="${pal.ring}">${n}</text>`);
   }
-  const barY = TOP + gridH + 16;
+  const barY = TOP + gridH + 12;
   css.push(`@keyframes pg{0%{transform:scaleX(.001)}${pf(pct(tTouch))}{transform:scaleX(1)}100%{transform:scaleX(1)}}`);
   body.push(`<rect x="${PAD}" y="${barY}" width="${gridW}" height="4" rx="2" fill="${pal.empty}"/>`);
   body.push(`<rect class="pb" x="${PAD}" y="${barY}" width="${gridW}" height="4" rx="2" fill="${pal.bar}"/>`);
@@ -761,18 +786,23 @@ if (env.DEBUG) {
   await writeFile(
     `${OUT_DIR}/debug.json`,
     JSON.stringify({
-      route, L, PB, total, WIDTH, HEIGHT, TOP, gridH, gridW, PAD,
-      bounds: [bx0, bx1, by0, by1],
+      route, L, total, W, bounds: [bx0, bx1, by0, by1], STEP,
       eatOrder: [...eatStep].sort((a, b) => a[1] - b[1]).map(([c, k]) => ({ count: c.count, star: c.star, k })),
-      frags: frags.map((f) => ({ tx: f.tx, ty: f.ty, s: f.samples.map((q) => [q.x, q.y]) })),
-      formation,
+      numberCells,
+      slots: slots.map((q) => ({ x: q.x, y: q.y, lit: q.lit, land: q.land })),
+      events: pieces.map((p) => p.events.map((e) => [e.t, e.x, e.y])),
     })
   );
 }
 
 const last = route[N - 1];
+const sumDays = allDays.reduce((a, d) => a + d.count, 0);
 console.log(
   `Snake game built: ${eatStep.size}/${foods.length} food eaten (${starCount} stars, threshold ${STAR_MIN}), ${buckets.length} count-groups, ` +
     `legs ${JSON.stringify(legStats)}, route ${N} steps @ ${STEP.toFixed(3)}s, length 3 -> ${maxL}, ends on border cell (${last.c},${last.r}): ${isBorder(last.c, last.r)}, ` +
-    `${frags.length} fragments for "${totalStr}", loop ${P.toFixed(1)}s -> ${OUT_DIR}/`
+    `${PN} pieces -> "${totalStr}", loop ${P.toFixed(1)}s -> ${OUT_DIR}/`
+);
+console.log(
+  `Contribution check: API total = ${total} (private/restricted part: ${restricted}), sum of the ${allDays.length} days = ${sumDays}. ` +
+    `Compare with the number on your profile page.`
 );

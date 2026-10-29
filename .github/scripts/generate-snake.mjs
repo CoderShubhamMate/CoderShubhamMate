@@ -37,9 +37,9 @@ const TARGET_SECONDS = Number(env.TARGET_SECONDS || 60);
 async function fetchCalendar() {
   if (env.MOCK === "1") return mockCalendar();
   if (!USER || !TOKEN) throw new Error("GH_USER and GITHUB_TOKEN are required (or set MOCK=1).");
-
-  const query = `query($login:String!){user(login:$login){contributionsCollection{contributionCalendar{
-    totalContributions restrictedContributionsCount weeks{contributionDays{date contributionCount contributionLevel weekday}}}}}}`;
+  
+  const query = `query($login:String!){user(login:$login){contributionsCollection{restrictedContributionsCount contributionCalendar{
+    totalContributions weeks{contributionDays{date contributionCount contributionLevel weekday}}}}}}`;
 
   const res = await fetch("https://api.github.com/graphql", {
     method: "POST",
@@ -54,11 +54,12 @@ async function fetchCalendar() {
   const json = await res.json();
   if (json.errors) throw new Error(`GitHub API error: ${JSON.stringify(json.errors)}`);
 
-  const cal = json.data.user.contributionsCollection.contributionCalendar;
+  const col = json.data.user.contributionsCollection;
+  const cal = col.contributionCalendar;
   const LEVEL = { NONE: 0, FIRST_QUARTILE: 1, SECOND_QUARTILE: 2, THIRD_QUARTILE: 3, FOURTH_QUARTILE: 4 };
   return {
     total: cal.totalContributions,
-    restricted: cal.restrictedContributionsCount,
+    restricted: col.restrictedContributionsCount,
     weeks: cal.weeks.map((w) =>
       w.contributionDays.map((d) => ({
         date: d.date,

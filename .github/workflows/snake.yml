@@ -28,7 +28,7 @@ jobs:
       - name: Generate snake game SVGs
         run: node .github/scripts/generate-snake.mjs
         env:
-          STEP_SECONDS: "0.2"
+          STEP_SECONDS: "0.5"
           GH_USER: CoderShubhamMate
           # Uses a personal access token if you add one called GH_PAT, otherwise the default token
           GITHUB_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}

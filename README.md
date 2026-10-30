@@ -1,38 +1,32 @@
 <div align="center">
-  <img src="https://capsule-render.vercel.app/api?type=waving&color=gradient&customColorList=6,11,20&height=180&section=header&text=Shubham%20Mate&fontSize=42&fontColor=fff&animation=twinkling&fontAlignY=32&desc=Full-Stack%20Web3%20Engineer%20%7C%20Blockchain%20Architect%20%7C%20Builder&descAlignY=55&descSize=16" />
-</div>
-
-<div align="center">
-  <img src="https://readme-typing-svg.herokuapp.com?font=JetBrains+Mono&weight=600&size=18&duration=3500&pause=800&color=58A6FF&center=true&vCenter=true&multiline=false&width=700&lines=Architecting+Enterprise+Decentralized+Infrastructure;Bridging+Off-Chain+Identity+with+On-Chain+Finality;Gasless+EIP-712+%7C+Zero-Trust+Security+%7C+Smart+Contracts;Replace+legacy+trust+with+cryptographic+proof." alt="Typing SVG" />
+  <img src="https://raw.githubusercontent.com/CoderShubhamMate/CoderShubhamMate/main/assets/hero.svg" alt="Shubham Mate - Full-Stack Web3 Engineer | Blockchain Architect | Builder" width="100%" />
 </div>
 
 <br/>
 
 <div align="center">
   <a href="https://www.linkedin.com/in/shubham-mate-6b436b229/">
-    <img src="https://img.shields.io/badge/LinkedIn-%230077B5.svg?style=for-the-badge&logo=linkedin&logoColor=white" />
+    <img src="https://img.shields.io/badge/LinkedIn-0b1120?style=for-the-badge&logo=linkedin&logoColor=22d3ee" />
   </a>
   <a href="https://x.com/mateshubham4">
-    <img src="https://img.shields.io/badge/X-%23000000.svg?style=for-the-badge&logo=X&logoColor=white" />
+    <img src="https://img.shields.io/badge/X-0b1120?style=for-the-badge&logo=X&logoColor=22d3ee" />
   </a>
   <a href="https://medium.com/@mateshubham4">
-    <img src="https://img.shields.io/badge/Medium-12100E?style=for-the-badge&logo=medium&logoColor=white" />
+    <img src="https://img.shields.io/badge/Medium-0b1120?style=for-the-badge&logo=medium&logoColor=22d3ee" />
   </a>
   <a href="https://www.instagram.com/_i_a.m_s.h.u.b.h.a.m_/">
-    <img src="https://img.shields.io/badge/Instagram-%23E4405F.svg?style=for-the-badge&logo=Instagram&logoColor=white" />
+    <img src="https://img.shields.io/badge/Instagram-0b1120?style=for-the-badge&logo=Instagram&logoColor=22d3ee" />
   </a>
   <a href="mailto:skillerdev03@gmail.com">
-    <img src="https://img.shields.io/badge/Gmail-D14836?style=for-the-badge&logo=gmail&logoColor=white" />
+    <img src="https://img.shields.io/badge/Gmail-0b1120?style=for-the-badge&logo=gmail&logoColor=22d3ee" />
   </a>
 </div>
 
 <br/>
 
----
-
-<img align="right" width="280" src="https://user-images.githubusercontent.com/74038190/229223263-cf2e4b07-2615-4f87-9c38-e37600f8381a.gif" alt="coding animation" />
-
-## 🧠 About Me
+<div align="center">
+  <img src="https://raw.githubusercontent.com/CoderShubhamMate/CoderShubhamMate/main/assets/block-01-about.svg" alt="About Me" width="100%" />
+</div>
 
 ```typescript
 const shubham = {
@@ -51,19 +45,21 @@ const shubham = {
 };
 ```
 
-<br clear="right"/>
+<br/>
 
----
+<div align="center">
+  <img src="https://raw.githubusercontent.com/CoderShubhamMate/CoderShubhamMate/main/assets/block-02-build.svg" alt="What I Build" width="100%" />
+</div>
 
-## ⚡ What I Build
+<div align="center">
+  <img src="https://raw.githubusercontent.com/CoderShubhamMate/CoderShubhamMate/main/assets/build-cards.svg" alt="Full-Stack Platforms: complex, multi-actor web platforms with Next.js and Node.js. Blockchain Protocols: on-chain infrastructure using Solidity, multi-sig governance and gasless EIP-712 meta-transaction relays. Desktop Applications: secure, sandboxed Electron consoles bridging hardware wallets with cloud backends." width="100%" />
+</div>
 
-| 🌐 Full-Stack Platforms | ⛓️ Blockchain Protocols | 🖥️ Desktop Applications |
-|:---:|:---:|:---:|
-| Complex, multi-actor web platforms with Next.js & Node.js — real-time state machines, role-based access control, and seamless UX at scale. | On-chain infrastructure using Solidity — custom token economies, multi-sig governance contracts, and gasless EIP-712 meta-transaction relay systems. | Secure, sandboxed Electron desktop consoles bridging hardware wallets with cloud backends for enterprise-grade authenticated workflows. |
+<br/>
 
----
-
-## 🛠️ Technology Arsenal
+<div align="center">
+  <img src="https://raw.githubusercontent.com/CoderShubhamMate/CoderShubhamMate/main/assets/block-03-stack.svg" alt="Technology Arsenal" width="100%" />
+</div>
 
 <div align="center">
 
@@ -97,55 +93,27 @@ const shubham = {
 
 </div>
 
----
+<br/>
 
-## 🚀 Featured Engineering
+<div align="center">
+  <img src="https://raw.githubusercontent.com/CoderShubhamMate/CoderShubhamMate/main/assets/block-04-featured.svg" alt="Featured Engineering" width="100%" />
+</div>
 
-<table>
-  <tr>
-    <td width="50%" valign="top">
-      <h3 align="center">🛡️ BBSNS — Secure Notarization System</h3>
-      <p>Enterprise-grade decentralized infrastructure replacing paper-based notarization with cryptographic finality.</p>
-      <ul>
-        <li>Gasless EIP-712 meta-transaction relay</li>
-        <li>Biometric KYC + multi-sig governance</li>
-        <li>Self-healing background workers</li>
-        <li>Electron desktop console + AWS S3 vault</li>
-      </ul>
-      <p>
-        <img src="https://img.shields.io/badge/Next.js-000?style=flat-square&logo=nextdotjs" />
-        <img src="https://img.shields.io/badge/Solidity-363636?style=flat-square&logo=solidity" />
-        <img src="https://img.shields.io/badge/AWS_S3-FF9900?style=flat-square&logo=amazonaws" />
-        <img src="https://img.shields.io/badge/Electron-47848F?style=flat-square&logo=electron" />
-      </p>
-      <a href="https://github.com/CoderShubhamMate/Block-Chain-Based-Secure-Notarization-System">
-        <img src="https://img.shields.io/badge/View_Repo-181717?style=for-the-badge&logo=github" />
-      </a>
-    </td>
-    <td width="50%" valign="top">
-      <h3 align="center">🔐 Offchain TEE Computing</h3>
-      <p>Research into secure off-chain computation using Trusted Execution Environments.</p>
-      <ul>
-        <li>Hardware-level security meets blockchain verifiability</li>
-        <li>Rust-based enclave execution</li>
-        <li>On-chain attestation & proof submission</li>
-        <li>Cryptographically verifiable off-chain results</li>
-      </ul>
-      <p>
-        <img src="https://img.shields.io/badge/Rust-000000?style=flat-square&logo=rust" />
-        <img src="https://img.shields.io/badge/Solidity-363636?style=flat-square&logo=solidity" />
-        <img src="https://img.shields.io/badge/JavaScript-F7DF1E?style=flat-square&logo=javascript&logoColor=black" />
-      </p>
-      <a href="https://github.com/CoderShubhamMate/offchain-computing-tee">
-        <img src="https://img.shields.io/badge/View_Repo-181717?style=for-the-badge&logo=github" />
-      </a>
-    </td>
-  </tr>
-</table>
+<div align="center">
+  <a href="https://github.com/CoderShubhamMate/Block-Chain-Based-Secure-Notarization-System">
+    <img src="https://raw.githubusercontent.com/CoderShubhamMate/CoderShubhamMate/main/assets/project-bbsns.svg" alt="BBSNS - Secure Notarization System" width="49%" />
+  </a>
+  &nbsp;
+  <a href="https://github.com/CoderShubhamMate/offchain-computing-tee">
+    <img src="https://raw.githubusercontent.com/CoderShubhamMate/CoderShubhamMate/main/assets/project-tee.svg" alt="Offchain TEE Computing" width="49%" />
+  </a>
+</div>
 
----
+<br/>
 
-## 🤝 Open To
+<div align="center">
+  <img src="https://raw.githubusercontent.com/CoderShubhamMate/CoderShubhamMate/main/assets/block-05-open.svg" alt="Open To" width="100%" />
+</div>
 
 <div align="center">
 
@@ -159,9 +127,11 @@ const shubham = {
 
 </div>
 
----
+<br/>
 
-## 📊 GitHub Stats
+<div align="center">
+  <img src="https://raw.githubusercontent.com/CoderShubhamMate/CoderShubhamMate/main/assets/block-06-stats.svg" alt="GitHub Stats" width="100%" />
+</div>
 
 <!-- Uses github-profile-summary-cards — a different service from github-readme-stats, avoiding rate limit issues -->
 
@@ -191,11 +161,11 @@ const shubham = {
   <img src="https://github-readme-activity-graph.vercel.app/graph?username=CoderShubhamMate&theme=tokyo-night&hide_border=true&area=true" width="98%" />
 </div>
 
----
+<br/>
 
-## 🐍 Contribution Snake
-
-<!-- To enable: create .github/workflows/snake.yml — see snake-workflow.yml file -->
+<div align="center">
+  <img src="https://raw.githubusercontent.com/CoderShubhamMate/CoderShubhamMate/main/assets/block-07-snake.svg" alt="Contribution Snake" width="100%" />
+</div>
 
 <div align="center">
   <picture>
@@ -205,24 +175,22 @@ const shubham = {
   </picture>
 </div>
 
----
+<br/>
 
-## 🏅 GitHub Trophies
+<div align="center">
+  <img src="https://raw.githubusercontent.com/CoderShubhamMate/CoderShubhamMate/main/assets/block-08-trophies.svg" alt="GitHub Trophies" width="100%" />
+</div>
 
 <div align="center">
   <img src="https://github-profile-trophy.vercel.app/?username=CoderShubhamMate&theme=tokyonight&no-frame=true&no-bg=true&column=7&margin-w=4&rank=SECRET,SSS,SS,S,AAA,AA,A,B,C" />
 </div>
 
----
+<br/>
 
 <div align="center">
-  <img src="https://capsule-render.vercel.app/api?type=waving&color=gradient&customColorList=6,11,20&height=100&section=footer" />
+  <img src="https://raw.githubusercontent.com/CoderShubhamMate/CoderShubhamMate/main/assets/footer.svg" alt="Replace legacy trust assumptions with cryptographic proof." width="100%" />
 </div>
 
 <p align="center">
   <img src="https://komarev.com/ghpvc/?username=CoderShubhamMate&label=Profile+Views&color=0e75b6&style=flat" />
-</p>
-
-<p align="center">
-  <i>"Replace legacy trust assumptions with cryptographic proof."</i>
 </p>

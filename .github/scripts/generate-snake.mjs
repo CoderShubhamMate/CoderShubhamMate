@@ -1,422 +1,809 @@
 /**
- * Generates the animated profile graphics (hero, section headers, cards, diagram, footer).
- * Zero dependencies, Node 18+.  Output goes to OUT_DIR (default "dist").
+ * Contribution Snake GAME generator (zero dependencies, Node 18+)
+ *
+ *  1. The snake starts with a body of 3 and slides in from the left edge.
+ *  2. It eats contribution by contribution, strictly from the LOWEST count to the
+ *     HIGHEST (all 1s, then all 2s, then 3s ...). Stars (big days) come last.
+ *  3. Normal food grows it by GROW_NORMAL (1), a star by GROW_STAR (2x).
+ *  4. It never runs into itself (path-finding around its own body).
+ *  5. After the last contribution it runs to the nearest border, blinks twice and
+ *     explodes. The snake's own boxes bounce around inside the grid border and,
+ *     one by one, drop into grid squares that light up like a digital clock:
+ *     the TOTAL contribution count, drawn with the graph's own pixels.
+ *
+ * Env vars (all optional except GH_USER + GITHUB_TOKEN, unless MOCK=1)
+ *   GH_USER, GITHUB_TOKEN   who to fetch / auth for the GraphQL API
+ *   STAR_MIN                min contributions/day to become a star (default: auto, top ~15% of active days, at least 3)
+ *   GROW_NORMAL, GROW_STAR  growth per food (default 1 / 2)
+ *   MAX_SNAKE_LENGTH        cap on snake length (default 30)
+ *   TARGET_SECONDS          aim for the eating phase to last about this long (default 60)
+ *   STEP_SECONDS            force seconds per grid step (overrides TARGET_SECONDS)
+ *   OUT_DIR                 output folder (default dist)
+ *   MOCK=1                  use random fake data (for local preview)
  */
-import { createHash } from "node:crypto";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdir, writeFile } from "node:fs/promises";
 
-const OUT = process.env.OUT_DIR || "dist";
-mkdirSync(OUT, { recursive: true });
-
-const FONT = "ui-monospace,SFMono-Regular,Menlo,Consolas,'Liberation Mono',monospace";
-const C = { bg: "#060913", panel: "#0b1120", line: "#1e293b", cyan: "#22d3ee", violet: "#8b5cf6", pink: "#f472b6", amber: "#fbbf24", green: "#4ade80", text: "#f8fafc", soft: "#cbd5e1", mute: "#64748b" };
-const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-const sha = (s) => createHash("sha256").update(s).digest("hex");
-const short = (h) => `0x${h.slice(0, 4)}...${h.slice(-4)}`;
-const wrap = (t, n) => {
-  const lines = []; let cur = "";
-  for (const w of t.split(" ")) {
-    if ((cur + " " + w).trim().length > n) { lines.push(cur); cur = w; } else cur = (cur + " " + w).trim();
-  }
-  if (cur) lines.push(cur);
-  return lines;
-};
-const svg = (w, h, label, inner) =>
-  `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" role="img" aria-label="${esc(label)}">\n${inner}\n</svg>\n`;
-const grad = (id) =>
-  `<linearGradient id="${id}" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="${C.cyan}"/><stop offset=".5" stop-color="${C.violet}"/><stop offset="1" stop-color="${C.pink}"/></linearGradient>`;
-const save = (name, content) => writeFileSync(`${OUT}/${name}`, content, "utf8");
-
-/* ---------------------------------------------------- section headers (a real hash chain) */
-const sections = [
-  ["about", "About Me"], ["focus", "System Design Focus"], ["build", "What I Build"], ["stack", "Technology Arsenal"],
-  ["featured", "Featured Engineering"], ["architecture", "Architecture Case Study"], ["open", "Open To"],
-  ["stats", "GitHub Stats"], ["snake", "Contribution Snake"], ["trophies", "GitHub Trophies"],
-];
-let prev = "0".repeat(64);
-sections.forEach(([slug, title], i) => {
-  const n = i + 1;
-  const hash = sha(prev + title + n);
-  const body = `<defs>${grad("a")}</defs>
-<style>
-text{font-family:${FONT}}
-.ln{stroke-dasharray:872;animation:draw 1.4s ease-out both}
-@keyframes draw{from{stroke-dashoffset:872}to{stroke-dashoffset:0}}
-.dot{animation:pulse 1.8s ease-in-out infinite}
-@keyframes pulse{50%{opacity:.2}}
-</style>
-<rect x=".5" y="8.5" width="899" height="66" rx="14" fill="${C.panel}" stroke="${C.line}"/>
-<line x1="90" y1="0" x2="90" y2="22" stroke="${C.cyan}" stroke-width="2" stroke-opacity=".7"/>
-<circle cx="90" cy="9" r="3" fill="${C.cyan}"/>
-<rect x="34" y="24" width="112" height="30" rx="8" fill="${C.cyan}" fill-opacity=".1" stroke="${C.cyan}" stroke-opacity=".55"/>
-<text x="90" y="44" text-anchor="middle" font-size="13" font-weight="700" fill="${C.cyan}">BLOCK #${String(n).padStart(3, "0")}</text>
-<text x="168" y="52" font-size="26" font-weight="800" fill="${C.text}">${esc(title)}</text>
-<circle class="dot" cx="620" cy="35" r="3.5" fill="${C.green}"/>
-<text x="630" y="39" font-size="11" fill="${C.green}">validated</text>
-<text x="766" y="37" text-anchor="end" font-size="11" fill="${C.mute}">hash</text><text x="876" y="37" text-anchor="end" font-size="11" fill="#94a3b8">${short(hash)}</text>
-<text x="766" y="56" text-anchor="end" font-size="11" fill="${C.mute}">prev</text><text x="876" y="56" text-anchor="end" font-size="11" fill="#94a3b8">${short(prev)}</text>
-<path class="ln" d="M16 74 H884" stroke="url(#a)" stroke-width="2.5" stroke-linecap="round" fill="none"/>`;
-  save(`block-${String(n).padStart(2, "0")}-${slug}.svg`, svg(900, 80, title, body));
-  prev = hash;
-});
-
-/* ------------------------------------------------------------------------------------- hero */
-{
-  const taglines = [
-    "Designing scalable and reliable backend systems",
-    "Studying distributed systems, one trade-off at a time",
-    "Case study: BBSNS - gasless relay, workers, multi-sig governance",
-    "Replace legacy trust with cryptographic proof.",
-  ];
-  let h = sha("genesis");
-  const hs = Array.from({ length: 7 }, (_, i) => (h = sha(h + i)).slice(0, 6));
-  const ticker = Array.from({ length: 40 }, (_, i) => "0x" + sha("t" + i).slice(0, 8)).join("   ");
-  const tw = Math.round(ticker.length * 6.6);
-  const blocks = hs.map((x, i) => {
-    const bx = 90 + i * 116, last = i === 6;
-    const col = [C.cyan, C.violet, C.pink][i % 3];
-    return `<g class="blk" style="animation-delay:${(i * 0.28).toFixed(2)}s">
-<rect x="${bx}" y="252" width="84" height="38" rx="9" fill="#0f172a" stroke="${col}" stroke-opacity="${last ? 0.9 : 0.75}" ${last ? 'stroke-dasharray="5 4"' : ""}/>
-<text x="${bx + 42}" y="267" text-anchor="middle" font-size="10" font-weight="700" fill="${col}">#${String(i + 1).padStart(4, "0")}</text>
-<text class="${last ? "mine" : ""}" x="${bx + 42}" y="281" text-anchor="middle" font-size="10" fill="#94a3b8">${last ? "mining..." : "0x" + x}</text>
-</g>`;
-  }).join("\n");
-  const links = Array.from({ length: 6 }, (_, i) => `<line class="lk" x1="${90 + i * 116 + 84}" y1="271" x2="${90 + (i + 1) * 116}" y2="271" stroke="#334155" stroke-width="2" stroke-dasharray="4 4"/>`).join("\n");
-  const tag = taglines.map((t, k) => {
-    const cursorX = 450 + ((("> " + t).length * 9.6) / 2) + 5;
-    return `<g class="tg t${k}" style="animation-delay:${k * 4}s"><text x="450" y="214" text-anchor="middle" font-size="16" fill="#7dd3fc"><tspan fill="${C.cyan}">&gt; </tspan>${esc(t)}</text><rect class="cur" x="${cursorX.toFixed(1)}" y="201" width="9" height="16" fill="${C.cyan}"/></g>`;
-  }).join("\n");
-  const body = `<defs>
-<linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0a0f24"/><stop offset="1" stop-color="${C.bg}"/></linearGradient>
-<linearGradient id="tg" x1="0" y1="0" x2="1" y2="0" spreadMethod="reflect"><stop offset="0" stop-color="${C.cyan}"/><stop offset=".5" stop-color="${C.violet}"/><stop offset="1" stop-color="${C.pink}"/><animateTransform attributeName="gradientTransform" type="translate" from="-1 0" to="1 0" dur="7s" repeatCount="indefinite"/></linearGradient>
-<radialGradient id="gv"><stop offset="0" stop-color="${C.violet}" stop-opacity=".35"/><stop offset="1" stop-color="${C.violet}" stop-opacity="0"/></radialGradient>
-<radialGradient id="gc"><stop offset="0" stop-color="${C.cyan}" stop-opacity=".25"/><stop offset="1" stop-color="${C.cyan}" stop-opacity="0"/></radialGradient>
-<pattern id="grid" width="30" height="30" patternUnits="userSpaceOnUse"><path d="M30 0H0V30" fill="none" stroke="#131c36" stroke-width="1"/></pattern>
-<clipPath id="tk"><rect x="20" y="298" width="860" height="22"/></clipPath>
-<clipPath id="card"><rect width="900" height="336" rx="18"/></clipPath>
-</defs>
-<style>
-text{font-family:${FONT}}
-.glow{animation:breathe 6s ease-in-out infinite}
-@keyframes breathe{50%{opacity:.55}}
-.blk{animation:pop .55s ease-out both}
-@keyframes pop{from{opacity:0;transform:translateY(10px)}}
-.lk{animation:flow 1.2s linear infinite}
-@keyframes flow{to{stroke-dashoffset:-8}}
-.pulse{animation:run 5s linear infinite}
-@keyframes run{0%{transform:translateX(0);opacity:0}6%{opacity:1}94%{opacity:1}100%{transform:translateX(780px);opacity:0}}
-.mine{animation:blink 1s steps(2,start) infinite}
-@keyframes blink{50%{opacity:.25}}
-.tg{opacity:0;animation:cyc 16s infinite both}.t0{opacity:1}
-@keyframes cyc{0%{opacity:0;transform:translateY(7px)}3%{opacity:1;transform:translateY(0)}22%{opacity:1;transform:translateY(0)}25%{opacity:0;transform:translateY(-7px)}100%{opacity:0}}
-.cur{animation:blink 1s steps(2,start) infinite}
-.scan{animation:scan 5s linear infinite}
-@keyframes scan{from{transform:translateY(40px)}to{transform:translateY(336px)}}
-.tick{animation:tick 40s linear infinite}
-@keyframes tick{to{transform:translateX(-${tw + 80}px)}}
-.live{animation:blink 1.6s ease-in-out infinite}
-</style>
-<g clip-path="url(#card)">
-<rect width="900" height="336" fill="url(#bg)"/>
-<rect width="900" height="336" fill="url(#grid)" opacity=".6"/>
-<circle class="glow" cx="790" cy="90" r="210" fill="url(#gv)"/>
-<circle class="glow" cx="90" cy="300" r="230" fill="url(#gc)" style="animation-delay:-3s"/>
-<rect class="scan" x="0" y="0" width="900" height="2" fill="${C.cyan}" opacity=".07"/>
-<line x1="0" y1="40.5" x2="900" y2="40.5" stroke="${C.line}"/>
-<circle cx="28" cy="20" r="6" fill="#ff5f57"/><circle cx="48" cy="20" r="6" fill="#febc2e"/><circle cx="68" cy="20" r="6" fill="#28c840"/>
-<text x="450" y="24" text-anchor="middle" font-size="12" fill="${C.mute}">design.md  -  shubham@systems:~$</text>
-<circle class="live" cx="684" cy="20" r="3.5" fill="${C.green}"/>
-<text x="872" y="24" text-anchor="end" font-size="12" fill="${C.green}">all systems operational</text>
-<text x="450" y="134" text-anchor="middle" font-size="62" font-weight="800" letter-spacing="5" fill="url(#tg)">SHUBHAM MATE</text>
-<text x="450" y="172" text-anchor="middle" font-size="17" fill="#94a3b8" xml:space="preserve" textLength="585" lengthAdjust="spacing">Software Engineer  |  System Design  |  Blockchain Systems</text>
-${tag}
-${links}
-${blocks}
-<circle class="pulse" cx="90" cy="271" r="4.5" fill="${C.cyan}"/>
-<g clip-path="url(#tk)"><g class="tick"><text x="20" y="314" font-size="11" fill="#334155" xml:space="preserve" textLength="${tw}" lengthAdjust="spacing">${ticker}</text><text x="${20 + tw + 80}" y="314" font-size="11" fill="#334155" xml:space="preserve" textLength="${tw}" lengthAdjust="spacing">${ticker}</text></g></g>
-</g>
-<rect x=".5" y=".5" width="899" height="335" rx="18" fill="none" stroke="${C.line}"/>`;
-  save("hero.svg", svg(900, 336, "Shubham Mate - Software Engineer, System Design, Blockchain Systems", body));
-}
-
-/* ------------------------------------------------------------------- system design focus chips */
-{
-  const rows = [
-    ["// CORE", ["Scalability", "Reliability", "Fault Tolerance", "Consistency & Trade-offs"]],
-    ["// BUILDING BLOCKS", ["Caching", "Load Balancing", "Message Queues", "Database Design", "API Design"]],
-    ["// OPERATE & SECURE", ["Observability", "Zero-Trust Security", "Cloud-Native & Microservices"]],
-  ];
-  const H = 3 * 48 + 56;
-  let idx = 0;
-  const parts = rows.map(([label, chips], r) => {
-    const y = 26 + r * 48, col = [C.cyan, C.violet, C.pink][r];
-    let x = 210;
-    const cs = chips.map((t) => {
-      const w = Math.round(t.length * 7.2 + 26);
-      const s = `<g class="c" style="animation-delay:${(idx++ * 0.07).toFixed(2)}s"><rect x="${x}" y="${y}" width="${w}" height="30" rx="15" fill="${col}" fill-opacity=".1" stroke="${col}" stroke-opacity=".55"/><text x="${x + w / 2}" y="${y + 20}" text-anchor="middle" font-size="12" fill="${C.text}">${esc(t)}</text></g>`;
-      x += w + 10;
-      return s;
-    }).join("");
-    return `<text x="28" y="${y + 20}" font-size="11" font-weight="700" fill="${col}">${esc(label)}</text>${cs}`;
-  }).join("\n");
-  save("focus.svg", svg(900, H, "System design focus: scalability, reliability, fault tolerance, caching, load balancing, message queues, database design, API design, observability, zero-trust security, cloud-native and microservices",
-    `<style>text{font-family:${FONT}}.c{animation:rise .5s ease-out both}@keyframes rise{from{opacity:0;transform:translateY(8px)}}</style>
-<rect x=".5" y=".5" width="899" height="${H - 1}" rx="16" fill="${C.panel}" stroke="${C.line}"/>
-${parts}
-<text x="28" y="${H - 16}" font-size="11" fill="${C.mute}">// what I am studying and applying in my projects</text>`));
-}
-
-/* ------------------------------------------------------------------------- what-I-build cards */
-{
-  const cards = [
-    { t: "Full-Stack Platforms", col: C.cyan, d: "Complex, multi-actor web platforms with Next.js & Node.js - real-time state machines, role-based access control, and seamless UX at scale.", k: "next.js  .  node.js  .  rbac",
-      icon: `<circle cx="14" cy="14" r="11" fill="none" stroke="COL" stroke-width="2"/><ellipse cx="14" cy="14" rx="5" ry="11" fill="none" stroke="COL" stroke-width="2"/><path d="M3 14H25" stroke="COL" stroke-width="2"/>` },
-    { t: "Blockchain Protocols", col: C.violet, d: "On-chain infrastructure using Solidity - custom token economies, multi-sig governance contracts, and gasless EIP-712 meta-transaction relay systems.", k: "solidity  .  eip-712  .  multi-sig",
-      icon: `<rect x="1" y="8" width="15" height="11" rx="5.5" fill="none" stroke="COL" stroke-width="2"/><rect x="12" y="8" width="15" height="11" rx="5.5" fill="none" stroke="COL" stroke-width="2"/>` },
-    { t: "Desktop Applications", col: C.pink, d: "Secure, sandboxed Electron desktop consoles bridging hardware wallets with cloud backends for enterprise-grade authenticated workflows.", k: "electron  .  wallets  .  cloud",
-      icon: `<rect x="2" y="3" width="24" height="16" rx="3" fill="none" stroke="COL" stroke-width="2"/><path d="M9 25H19M14 19V25" stroke="COL" stroke-width="2"/>` },
-  ];
-  const parts = cards.map((c, i) => {
-    const lines = wrap(c.d, 32).map((l, j) => `<text x="24" y="${100 + j * 19}" font-size="12" fill="${C.soft}">${esc(l)}</text>`).join("");
-    return `<g transform="translate(${i * 308},0)" class="cd" style="animation-delay:${i * 0.15}s">
-<rect x=".5" y=".5" width="283" height="259" rx="16" fill="${C.panel}" stroke="${C.line}"/>
-<rect x="24" y="0" width="236" height="3" rx="1.5" fill="${c.col}"/>
-<g transform="translate(24,26)">${c.icon.replace(/COL/g, c.col)}</g>
-<text x="64" y="48" font-size="17" font-weight="800" fill="${C.text}">${esc(c.t)}</text>
-<line x1="24" y1="68" x2="260" y2="68" stroke="${C.line}"/>
-${lines}
-<text x="24" y="240" font-size="11" fill="${C.mute}">// ${esc(c.k)}</text>
-</g>`;
-  }).join("\n");
-  save("build-cards.svg", svg(900, 262, "What I build: full-stack platforms, blockchain protocols, desktop applications",
-    `<style>text{font-family:${FONT}}.cd{animation:rise .6s ease-out both}@keyframes rise{from{opacity:0;transform:translateY(12px)}}</style>\n${parts}`));
-}
-
-/* ------------------------------------------------------------------------------ project cards */
-{
-  const projects = [
-    { slug: "bbsns", n: "01", t: "BBSNS - Secure Notarization System", d: "Enterprise-grade decentralized infrastructure replacing paper-based notarization with cryptographic finality.",
-      b: ["Gasless EIP-712 meta-transaction relay", "Biometric KYC + multi-sig governance", "Self-healing background workers", "Electron desktop console + AWS S3 vault"],
-      tags: ["Next.js", "Solidity", "AWS S3", "Electron"], col: C.cyan },
-    { slug: "tee", n: "02", t: "Offchain TEE Computing", d: "Research into secure off-chain computation using Trusted Execution Environments.",
-      b: ["Hardware-level security meets blockchain verifiability", "Rust-based enclave execution", "On-chain attestation & proof submission", "Cryptographically verifiable off-chain results"],
-      tags: ["Rust", "Solidity", "JavaScript"], col: C.violet },
-  ];
-  const layout = projects.map((p) => ({ p, desc: wrap(p.d, 50), bl: p.b.map((x) => wrap(x, 46)) }));
-  const H = Math.max(...layout.map(({ desc, bl }) => 112 + desc.length * 18 + 14 + bl.reduce((a, l) => a + l.length * 18 + 6, 0) + 20 + 24 + 22 + 40 + 18));
-  layout.forEach(({ p, desc, bl }) => {
-    let y = 112;
-    const dsc = desc.map((l, j) => `<text x="24" y="${y + j * 18}" font-size="12" fill="${C.soft}">${esc(l)}</text>`).join("");
-    y += desc.length * 18 + 14;
-    const bul = bl.map((ls) => {
-      const out = ls.map((l, j) => `${j === 0 ? `<text x="24" y="${y + j * 18}" font-size="12" fill="${p.col}">&#9656;</text>` : ""}<text x="42" y="${y + j * 18}" font-size="12" fill="${C.soft}">${esc(l)}</text>`).join("");
-      y += ls.length * 18 + 6;
-      return out;
-    }).join("");
-    y += 14;
-    let cx = 24;
-    const chips = p.tags.map((tg) => {
-      const w = Math.round(tg.length * 7 + 22);
-      const s = `<rect x="${cx}" y="${y}" width="${w}" height="24" rx="12" fill="${p.col}" fill-opacity=".1" stroke="${p.col}" stroke-opacity=".5"/><text x="${cx + w / 2}" y="${y + 16}" text-anchor="middle" font-size="11" fill="${p.col}">${esc(tg)}</text>`;
-      cx += w + 8;
-      return s;
-    }).join("");
-    const btnY = H - 58;
-    const body = `<defs>${grad("g")}</defs>
-<style>text{font-family:${FONT}}.sh{animation:sh 3.2s ease-in-out infinite}@keyframes sh{50%{opacity:.55}}</style>
-<rect x=".5" y=".5" width="439" height="${H - 1}" rx="18" fill="${C.panel}" stroke="${C.line}"/>
-<rect x="24" y="0" width="392" height="3" rx="1.5" fill="url(#g)"/>
-<rect x="24" y="22" width="132" height="26" rx="8" fill="${p.col}" fill-opacity=".1" stroke="${p.col}" stroke-opacity=".5"/>
-<text x="90" y="39" text-anchor="middle" font-size="12" font-weight="700" fill="${p.col}">FEATURED #${p.n}</text>
-<text x="416" y="39" text-anchor="end" font-size="11" fill="${C.mute}">tx ${short(sha(p.t))}</text>
-<text x="24" y="86" font-size="18" font-weight="800" fill="${C.text}">${esc(p.t)}</text>
-${dsc}
-${bul}
-${chips}
-<rect class="sh" x="24" y="${btnY}" width="158" height="34" rx="10" fill="none" stroke="url(#g)" stroke-width="2"/>
-<text x="103" y="${btnY + 22}" text-anchor="middle" font-size="12" font-weight="700" fill="${C.text}">VIEW REPO &#8599;</text>`;
-    save(`project-${p.slug}.svg`, svg(440, H, p.t, body));
-  });
-}
-
-/* ------------------------------------------------------------ architecture case study (BBSNS) */
-{
-  const W = 900, H = 396;
-  const css = [];
-  const box = (x, y, w, h, col, title, subs) => {
-    const cy = y + h / 2, n = subs.length;
-    const t0 = n ? cy - 4 - (n - 1) * 8 : cy + 5;
-    return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="12" fill="#0f172a" stroke="${col}" stroke-opacity=".75"/>
-<circle cx="${x + 14}" cy="${y + 16}" r="3.5" fill="${col}"/>
-<text x="${x + w / 2}" y="${t0}" text-anchor="middle" font-size="${w < 150 ? 13 : 15}" font-weight="800" fill="${C.text}">${esc(title)}</text>
-${subs.map((s, i) => `<text x="${x + w / 2}" y="${t0 + 19 + i * 16}" text-anchor="middle" font-size="11" fill="${C.mute}">${esc(s)}</text>`).join("")}`;
-  };
-  let aid = 0;
-  const arrow = (x1, y1, x2, y2, col, dashed = false, both = false) => {
-    const id = aid++, dx = x2 - x1, dy = y2 - y1, len = Math.hypot(dx, dy), ux = dx / len, uy = dy / len;
-    const head = (x, y, sx, sy) => `<polygon points="${x},${y} ${x - sx * 8 + -sy * 4},${y - sy * 8 + sx * 4} ${x - sx * 8 - -sy * 4},${y - sy * 8 - sx * 4}" fill="${col}"/>`;
-    css.push(`@keyframes pk${id}{0%{transform:translate(0px,0px);opacity:0}15%{opacity:1}85%{opacity:1}100%{transform:translate(${dx}px,${dy}px);opacity:0}}`);
-    return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${col}" stroke-opacity=".7" stroke-width="2" ${dashed ? 'stroke-dasharray="5 4"' : ""}/>${head(x2, y2, ux, uy)}${both ? head(x1, y1, -ux, -uy) : ""}<circle class="pk" style="animation-name:pk${id};animation-delay:${(id * 0.45).toFixed(2)}s" cx="${x1}" cy="${y1}" r="3.5" fill="${col}"/>`;
-  };
-  const heads = [["CLIENTS", 150, C.cyan], ["BACKEND", 450, C.violet], ["ON-CHAIN", 750, C.pink]]
-    .map(([t, x, c]) => `<text x="${x}" y="40" text-anchor="middle" font-size="11" font-weight="700" letter-spacing="3" fill="${c}">${t}</text>`).join("");
-  const parts = [
-    box(40, 64, 220, 66, C.cyan, "Web App", ["Next.js"]),
-    box(40, 168, 220, 66, C.cyan, "Desktop Console", ["Electron + hardware wallets"]),
-    box(340, 64, 220, 170, C.violet, "API", ["Node.js backend"]),
-    box(340, 272, 105, 66, C.violet, "Workers", ["self-healing"]),
-    box(455, 272, 105, 66, C.violet, "S3 Vault", ["AWS S3"]),
-    box(640, 64, 220, 66, C.pink, "Meta-Tx Relay", ["gasless - EIP-712"]),
-    box(640, 168, 220, 170, C.pink, "Smart Contracts", ["Solidity", "multi-sig governance"]),
-    arrow(260, 97, 340, 97, C.cyan), arrow(260, 201, 340, 201, C.cyan),
-    arrow(560, 97, 640, 97, C.violet), arrow(750, 130, 750, 168, C.pink),
-    arrow(392, 234, 392, 272, C.violet, true, true), arrow(507, 234, 507, 272, C.violet, true),
-  ].join("\n");
-  save("architecture.svg", svg(W, H, "BBSNS architecture, simplified: web app and Electron console talk to a Node.js API, which uses background workers, an S3 vault and a gasless EIP-712 relay to Solidity smart contracts",
-    `<style>text{font-family:${FONT}}.pk{animation-iteration-count:infinite;animation-duration:2.4s;animation-timing-function:linear}${css.join("")}</style>
-<rect x=".5" y=".5" width="899" height="${H - 1}" rx="16" fill="${C.panel}" stroke="${C.line}"/>
-${heads}
-${parts}
-<text x="450" y="${H - 18}" text-anchor="middle" font-size="11" fill="${C.mute}">// simplified, illustrative view - see the repository for the real design</text>`));
-}
-
-/* ------------------------------------------------ live GitHub data: activity chart + trophies */
 const env = process.env;
 const USER = env.GH_USER || env.GITHUB_REPOSITORY_OWNER || "";
 const TOKEN = env.GITHUB_TOKEN || env.GH_TOKEN || "";
+const OUT_DIR = env.OUT_DIR || "dist";
+const MAX_LEN = Math.max(2, Number(env.MAX_SNAKE_LENGTH || 30));
+const GROW_NORMAL = Number(env.GROW_NORMAL || 1);
+const GROW_STAR = Number(env.GROW_STAR || GROW_NORMAL * 2);
+const TARGET_SECONDS = Number(env.TARGET_SECONDS || 60);
 
-async function fetchStats() {
-  if (env.MOCK === "1") {
-    const weeks = Array.from({ length: 53 }, (_, i) => ({
-      days: Array.from({ length: 7 }, (_, d) => ({
-        n: ((i * 7 + d) * 37) % 11 === 0 ? 5 + (i % 7) : (i + d) % 4 === 0 ? 1 + (i % 3) : 0,
-        date: new Date(Date.UTC(2025, 10, 2 + i * 7 + d)).toISOString().slice(0, 10),
-      })),
-    }));
-    return { weeks, total: weeks.flatMap((w) => w.days).reduce((a, d) => a + d.n, 0), commits: 310, prs: 12, issues: 4, stars: 18, followers: 25, repos: 14 };
-  }
-  if (!USER || !TOKEN) throw new Error("GH_USER and GITHUB_TOKEN are required");
-  const query = `query($login:String!){user(login:$login){
-    followers{totalCount} pullRequests{totalCount} issues{totalCount}
-    repositories(ownerAffiliations:OWNER,privacy:PUBLIC,isFork:false,first:100){totalCount nodes{stargazerCount}}
-    contributionsCollection{totalCommitContributions contributionCalendar{totalContributions weeks{contributionDays{contributionCount date}}}}}}`;
+/* ------------------------------------------------------------------ data */
+
+async function fetchCalendar() {
+  if (env.MOCK === "1") return mockCalendar();
+  if (!USER || !TOKEN) throw new Error("GH_USER and GITHUB_TOKEN are required (or set MOCK=1).");
+  
+  const query = `query($login:String!){user(login:$login){contributionsCollection{restrictedContributionsCount contributionCalendar{
+    totalContributions weeks{contributionDays{date contributionCount contributionLevel weekday}}}}}}`;
+
   const res = await fetch("https://api.github.com/graphql", {
     method: "POST",
-    headers: { Authorization: `bearer ${TOKEN}`, "Content-Type": "application/json", "User-Agent": "profile-graphics" },
+    headers: {
+      Authorization: `bearer ${TOKEN}`,
+      "Content-Type": "application/json",
+      "User-Agent": "contribution-snake-game",
+    },
     body: JSON.stringify({ query, variables: { login: USER } }),
   });
-  if (!res.ok) throw new Error(`GitHub API ${res.status}`);
+  if (!res.ok) throw new Error(`GitHub API ${res.status}: ${await res.text()}`);
   const json = await res.json();
-  if (json.errors) throw new Error(JSON.stringify(json.errors));
-  const u = json.data.user, cc = u.contributionsCollection;
+  if (json.errors) throw new Error(`GitHub API error: ${JSON.stringify(json.errors)}`);
+
+  const col = json.data.user.contributionsCollection;
+  const cal = col.contributionCalendar;
+  const LEVEL = { NONE: 0, FIRST_QUARTILE: 1, SECOND_QUARTILE: 2, THIRD_QUARTILE: 3, FOURTH_QUARTILE: 4 };
   return {
-    weeks: cc.contributionCalendar.weeks.map((w) => ({ days: w.contributionDays.map((d) => ({ n: d.contributionCount, date: d.date })) })),
-    total: cc.contributionCalendar.totalContributions, commits: cc.totalCommitContributions,
-    prs: u.pullRequests.totalCount, issues: u.issues.totalCount, followers: u.followers.totalCount,
-    repos: u.repositories.totalCount, stars: u.repositories.nodes.reduce((a, r) => a + r.stargazerCount, 0),
+    total: cal.totalContributions,
+    restricted: col.restrictedContributionsCount,
+    weeks: cal.weeks.map((w) =>
+      w.contributionDays.map((d) => ({
+        date: d.date,
+        row: d.weekday,
+        count: d.contributionCount,
+        level: LEVEL[d.contributionLevel] ?? 0,
+      }))
+    ),
   };
 }
 
-let stats = null;
-try { stats = await fetchStats(); } catch (e) { console.warn("WARNING: could not load GitHub data:", e.message); }
+function mulberry(seed) {
+  let s = seed;
+  return () => {
+    s |= 0; s = (s + 0x6d2b79f5) | 0;
+    let t = Math.imul(s ^ (s >>> 15), 1 | s);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
 
-const unavailable = (name, h) => svg(900, h, `${name} (live GitHub data unavailable right now)`,
-  `<style>text{font-family:${FONT}}</style><rect x=".5" y=".5" width="899" height="${h - 1}" rx="16" fill="${C.panel}" stroke="${C.line}"/>
-<text x="450" y="${h / 2 + 4}" text-anchor="middle" font-size="12" fill="${C.mute}">// live GitHub data unavailable right now - it refreshes on the next run</text>`);
-
-/* ---- activity: contributions per week ---- */
-{
-  if (!stats) save("activity.svg", unavailable("Contribution activity", 120));
-  else {
-    const W = 900, H = 260, L = 58, R = 26, T = 62, B = 46, iw = W - L - R, ih = H - T - B;
-    const weekly = stats.weeks.map((w) => w.days.reduce((a, d) => a + d.n, 0));
-    const max = Math.max(1, ...weekly), top = Math.max(5, Math.ceil(max / 5) * 5);
-    const pts = weekly.map((v, i) => [L + (i * iw) / Math.max(1, weekly.length - 1), T + ih - (v / top) * ih]);
-    let d = `M${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`, len = 0;
-    for (let i = 1; i < pts.length; i++) {
-      const [x0, y0] = pts[i - 1], [x1, y1] = pts[i], xm = (x0 + x1) / 2;
-      d += ` C${xm.toFixed(1)},${y0.toFixed(1)} ${xm.toFixed(1)},${y1.toFixed(1)} ${x1.toFixed(1)},${y1.toFixed(1)}`;
-      len += Math.hypot(x1 - x0, y1 - y0) * 1.15;
+function mockCalendar() {
+  const rnd = mulberry(42);
+  const weeks = [];
+  let total = 0;
+  for (let c = 0; c < 53; c++) {
+    const days = [];
+    const n = c === 52 ? 3 : 7;
+    for (let r = 0; r < n; r++) {
+      const active = rnd() < (c > 30 ? 0.6 : 0.35) * Number(env.MOCK_DENSITY || 1);
+      let count = active ? 1 + Math.floor(rnd() ** 2 * 14) : 0;
+      if (rnd() < 0.03) count += 15;
+      total += count;
+      days.push({ row: r, count, level: count === 0 ? 0 : count < 4 ? 1 : count < 8 ? 2 : count < 12 ? 3 : 4 });
     }
-    const area = `${d} L${pts.at(-1)[0].toFixed(1)},${T + ih} L${pts[0][0].toFixed(1)},${T + ih} Z`;
-    const grid = [0, 0.25, 0.5, 0.75, 1].map((f) => {
-      const y = T + ih - f * ih;
-      return `<line x1="${L}" y1="${y}" x2="${W - R}" y2="${y}" stroke="${C.line}" stroke-dasharray="3 5"/><text x="${L - 10}" y="${y + 4}" text-anchor="end" font-size="10" fill="${C.mute}">${Math.round(top * f)}</text>`;
-    }).join("");
-    const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-    let lastM = -1;
-    const months = stats.weeks.map((w, i) => {
-      const m = new Date(w.days[0].date + "T00:00:00Z").getUTCMonth();
-      if (m === lastM) return "";
-      lastM = m;
-      return i > weekly.length - 3 ? "" : `<text x="${pts[i][0].toFixed(1)}" y="${H - 20}" font-size="10" fill="${C.mute}">${MON[m]}</text>`;
-    }).join("");
-    const pi = weekly.indexOf(max), [px, py] = pts[pi];
-    const body = `<defs>${grad("al")}<linearGradient id="af" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${C.violet}" stop-opacity=".45"/><stop offset="1" stop-color="${C.violet}" stop-opacity="0"/></linearGradient></defs>
-<style>text{font-family:${FONT}}.ln{stroke-dasharray:${Math.round(len)};animation:dr 2.4s ease-out both}@keyframes dr{from{stroke-dashoffset:${Math.round(len)}}}.ar{animation:fi 1.6s ease-out .8s both}@keyframes fi{from{opacity:0}}.pk{animation:pl 1.8s ease-in-out infinite}@keyframes pl{50%{opacity:.35}}</style>
-<rect x=".5" y=".5" width="899" height="${H - 1}" rx="16" fill="${C.panel}" stroke="${C.line}"/>
-<text x="${L}" y="34" font-size="12" font-weight="700" fill="${C.cyan}">// contributions per week</text>
-<text x="${W - R}" y="34" text-anchor="end" font-size="12" fill="${C.soft}">${stats.total.toLocaleString("en-US")} in the last year</text>
-${grid}
-<path class="ar" d="${area}" fill="url(#af)"/>
-<path class="ln" d="${d}" fill="none" stroke="url(#al)" stroke-width="2.5" stroke-linecap="round"/>
-<circle class="pk" cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="5" fill="${C.pink}"/>
-<text x="${Math.min(px + 10, W - 70).toFixed(1)}" y="${Math.max(py - 8, T + 8).toFixed(1)}" font-size="11" fill="${C.pink}">peak ${max}</text>
-${months}`;
-    save("activity.svg", svg(W, H, `Contributions per week over the last year: ${stats.total} in total, peak week ${max}`, body));
+    weeks.push(days);
+  }
+  return { total, weeks };
+}
+
+function starThreshold(days) {
+  if (env.STAR_MIN) return Number(env.STAR_MIN);
+  const counts = days.filter((d) => d.count > 0).map((d) => d.count).sort((a, b) => a - b);
+  if (!counts.length) return Infinity;
+  const p85 = counts[Math.min(counts.length - 1, Math.floor(counts.length * 0.85))];
+  return Math.max(3, p85);
+}
+
+/* ------------------------------------------------------------------ game */
+
+const { total, weeks, restricted = 0 } = await fetchCalendar();
+const W = weeks.length;
+const grid = weeks.map((days, c) => {
+  const col = [];
+  for (const d of days) { d.c = c; col[d.row] = d; }
+  return col;
+});
+const allDays = weeks.flat();
+const STAR_MIN = starThreshold(allDays);
+for (const d of allDays) d.star = d.count > 0 && d.count >= STAR_MIN;
+const starCount = allDays.filter((d) => d.star).length;
+
+// Food sorted from the lowest contribution count upwards, then split into
+// groups: all the 1s, then all the 2s, then 3s ... Inside a group the snake
+// always goes for the nearest food.
+const foods = allDays
+  .filter((d) => d.count > 0)
+  .sort((a, b) => a.count - b.count || a.c - b.c || a.row - b.row);
+if (foods.length < 2) throw new Error("Not enough contribution data to build a game.");
+const BUCKET_MIN = 1; // groups = exact contribution counts
+const buckets = [];
+{
+  let cur = [];
+  for (let i = 0; i < foods.length; i++) {
+    cur.push(foods[i]);
+    const next = foods[i + 1];
+    if (!next || (cur.length >= BUCKET_MIN && next.count !== foods[i].count)) { buckets.push(cur); cur = []; }
   }
 }
 
-/* ---- trophies: stat cards with ranks ---- */
-{
-  if (!stats) save("trophies.svg", unavailable("GitHub trophies", 120));
-  else {
-    const RANKS = ["C", "B", "A", "AA", "AAA", "S", "SS", "SSS"];
-    const RCOL = ["#94a3b8", C.green, C.cyan, "#60a5fa", C.violet, C.amber, "#fb923c", C.pink];
-    const TH = { total: [1, 100, 300, 600, 1000, 2000, 4000], commits: [1, 50, 150, 300, 600, 1200, 2500], prs: [1, 5, 15, 40, 100, 250, 600], issues: [1, 5, 15, 40, 100, 250, 600], stars: [1, 5, 15, 40, 100, 300, 1000], followers: [1, 5, 15, 40, 100, 300, 1000], repos: [1, 5, 10, 25, 50, 100, 200] };
-    const ICON = {
-      total: `<rect x="0" y="0" width="8" height="8" rx="2"/><rect x="11" y="0" width="8" height="8" rx="2"/><rect x="0" y="11" width="8" height="8" rx="2"/><rect x="11" y="11" width="8" height="8" rx="2" opacity=".45"/>`,
-      commits: `<circle cx="10" cy="10" r="5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M0 10H5M15 10H20" stroke="currentColor" stroke-width="2"/>`,
-      prs: `<circle cx="4" cy="4" r="3" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="4" cy="16" r="3" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="16" cy="16" r="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M4 7V13M16 13V8C16 5 14 4 11 4" fill="none" stroke="currentColor" stroke-width="2"/>`,
-      issues: `<circle cx="10" cy="10" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M10 5V11" stroke="currentColor" stroke-width="2"/><circle cx="10" cy="14.5" r="1.3"/>`,
-      stars: `<polygon points="10,0 12.6,6.8 20,7.3 14.3,12 16.2,19.2 10,15.2 3.8,19.2 5.7,12 0,7.3 7.4,6.8"/>`,
-      followers: `<circle cx="10" cy="6" r="4.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M1.5 19C2.5 13 17.5 13 18.5 19" fill="none" stroke="currentColor" stroke-width="2"/>`,
-      repos: `<rect x="2" y="1" width="16" height="18" rx="2.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M6 6H14M6 10H14" stroke="currentColor" stroke-width="2"/>`,
-    };
-    const items = [
-      ["total", "Contributions", stats.total], ["commits", "Commits", stats.commits], ["prs", "Pull Requests", stats.prs], ["issues", "Issues", stats.issues],
-      ["stars", "Stars Earned", stats.stars], ["followers", "Followers", stats.followers], ["repos", "Repositories", stats.repos],
-    ];
-    const cw = 120, gap = 10;
-    const cards = items.map(([k, label, v], i) => {
-      const ri = v === 0 ? -1 : TH[k].filter((t) => v >= t).length;
-      const col = ri < 0 ? C.mute : RCOL[ri];
-      return `<g transform="translate(${i * (cw + gap)},0)" class="tc" style="animation-delay:${(i * 0.1).toFixed(1)}s">
-<rect x=".5" y=".5" width="${cw - 1}" height="175" rx="14" fill="${C.panel}" stroke="${C.line}"/>
-<rect x="18" y="0" width="${cw - 36}" height="3" rx="1.5" fill="${col}"/>
-<g transform="translate(${cw / 2 - 10},20)" fill="${col}" color="${col}">${ICON[k]}</g>
-<text x="${cw / 2}" y="86" text-anchor="middle" font-size="24" font-weight="800" fill="${C.text}">${Number(v).toLocaleString("en-US")}</text>
-<text x="${cw / 2}" y="106" text-anchor="middle" font-size="10" fill="${C.mute}">${esc(label.toUpperCase())}</text>
-<rect x="${cw / 2 - 36}" y="126" width="72" height="26" rx="13" fill="${col}" fill-opacity=".12" stroke="${col}" stroke-opacity=".6"/>
-<text x="${cw / 2}" y="143" text-anchor="middle" font-size="11" font-weight="700" fill="${col}">${ri < 0 ? "NO RANK" : "RANK " + RANKS[ri]}</text>
-</g>`;
-    }).join("\n");
-    save("trophies.svg", svg(900, 176, "GitHub trophies: " + items.map(([, l, v]) => `${l} ${v}`).join(", "),
-      `<style>text{font-family:${FONT}}.tc{animation:rise .6s ease-out both}@keyframes rise{from{opacity:0;transform:translateY(12px)}}</style>\n${cards}`));
+/* ---- snake state + path-finding (body-aware, never self-colliding) ---- */
+
+const NK = 7 * W;
+const key = (c, r) => c * 7 + r;
+const DIRS = [[1, 0], [0, 1], [-1, 0], [0, -1]];
+
+const route = [];          // every cell the head visits, in order
+const L = [];              // snake length after each step
+const eaten = new Set();
+const eatStep = new Map(); // food cell -> step at which it is eaten
+let len = 1, pending = 0;
+
+function pushStep(c, r) {
+  const k = route.length;
+  route.push({ c, r });
+  if (k > 0 && pending > 0 && len < MAX_LEN) { len++; pending--; } // tail stays put -> snake grows
+  const cell = grid[c][r];
+  if (cell.count > 0 && !eaten.has(cell)) {
+    eaten.add(cell);
+    eatStep.set(cell, k);
+    pending += cell.star ? GROW_STAR : GROW_NORMAL;
+  }
+  if (len >= MAX_LEN) pending = 0;
+  L.push(len);
+}
+
+const INF = 1e9;
+const FOOD_PENALTY = Number(env.FOOD_PENALTY || 60); // stepping on food that is not "due yet" costs this much extra
+
+class Heap {
+  constructor() { this.a = []; }
+  get size() { return this.a.length; }
+  push(cost, k) {
+    const a = this.a; a.push([cost, k]);
+    let i = a.length - 1;
+    while (i > 0) { const p = (i - 1) >> 1; if (a[p][0] <= a[i][0]) break; [a[p], a[i]] = [a[i], a[p]]; i = p; }
+  }
+  pop() {
+    const a = this.a, top = a[0], last = a.pop();
+    if (a.length) {
+      a[0] = last;
+      let i = 0;
+      for (;;) {
+        let l = 2 * i + 1, r = l + 1, m = i;
+        if (l < a.length && a[l][0] < a[m][0]) m = l;
+        if (r < a.length && a[r][0] < a[m][0]) m = r;
+        if (m === i) break;
+        [a[m], a[i]] = [a[i], a[m]]; i = m;
+      }
+    }
+    return top;
   }
 }
 
-/* ---------------------------------------------------------------------------------- footer */
-{
-  const q = "Replace legacy trust assumptions with cryptographic proof.";
-  const body = `<defs>${grad("f")}</defs>
-<style>text{font-family:${FONT}}.bk{animation:bk 1.2s steps(2,start) infinite}@keyframes bk{50%{opacity:.2}}.fl{stroke-dasharray:872;animation:dr 2s ease-out both}@keyframes dr{from{stroke-dashoffset:872}}</style>
-<rect x=".5" y=".5" width="899" height="139" rx="18" fill="${C.panel}" stroke="${C.line}"/>
-<path class="fl" d="M16 2 H884" stroke="url(#f)" stroke-width="3" stroke-linecap="round" fill="none"/>
-<text x="450" y="44" text-anchor="middle" font-size="12" fill="${C.amber}">BLOCK #&#8734;<tspan fill="${C.mute}">  -  </tspan><tspan class="bk">pending</tspan></text>
-<text x="450" y="84" text-anchor="middle" font-size="18" font-weight="700" fill="url(#f)">&quot;${esc(q)}&quot;</text>
-<text x="450" y="116" text-anchor="middle" font-size="11" fill="${C.mute}">// signed: Shubham Mate</text>`;
-  save("footer.svg", svg(900, 140, q, body));
+// Cheapest routes from the head to every cell.
+// body: "timed"  = tail cells free up as the snake moves (exact, uses growth),
+//       "static" = whole body is a wall (always safe),
+//       "ignore" = last resort.
+// Food that is not in `allowed` (i.e. not due yet) is expensive to cross, so the
+// snake only eats out of order when there is really no other way.
+function search({ body, allowed, hard = false }) {
+  const end = route.length - 1;
+  const head = route[end];
+  const bodyIdx = new Map();
+  for (let i = Math.max(0, end - len + 1); i <= end; i++) bodyIdx.set(key(route[i].c, route[i].r), i);
+  const cost = new Float64Array(NK).fill(INF);
+  const steps = new Int32Array(NK).fill(-1);
+  const par = new Int32Array(NK).fill(-1);
+  const hk = key(head.c, head.r);
+  cost[hk] = 0; steps[hk] = 0;
+  const heap = new Heap();
+  heap.push(0, hk);
+  while (heap.size) {
+    const [cc, k] = heap.pop();
+    if (cc > cost[k]) continue;
+    const c = (k / 7) | 0, r = k % 7, nd = steps[k] + 1;
+    for (const [dc, dr] of DIRS) {
+      const nc = c + dc, nr = r + dr;
+      if (nc < 0 || nc >= W || nr < 0 || nr > 6) continue;
+      const cell = grid[nc]?.[nr];
+      if (!cell) continue;
+      const nk = key(nc, nr);
+      const bi = bodyIdx.get(nk);
+      if (bi !== undefined && body !== "ignore") {
+        if (body === "static") continue;
+        const Ld = Math.min(MAX_LEN, len + Math.min(nd, pending));
+        if (bi >= end + nd - Ld + 1) continue; // still occupied by the body at that moment
+      }
+      const notDue = cell.count > 0 && !eaten.has(cell) && !allowed.has(cell);
+      if (notDue && hard) continue;
+      const nc2 = cc + 1 + (notDue ? FOOD_PENALTY : 0);
+      if (nc2 < cost[nk]) { cost[nk] = nc2; steps[nk] = nd; par[nk] = k; heap.push(nc2, nk); }
+    }
+  }
+  return { cost, steps, par, hk };
 }
 
-console.log(`profile graphics written to ${OUT}/`);
+function reconstruct(res, target) {
+  const p = [];
+  for (let k = target; k !== res.hk; k = res.par[k]) p.push({ c: (k / 7) | 0, r: k % 7 });
+  return p.reverse();
+}
+
+function rankedTargets(res, cands) {
+  return [...cands]
+    .map((cell) => ({ cell, k: key(cell.c, cell.row) }))
+    .filter((x) => res.cost[x.k] > 0 && res.cost[x.k] < INF)
+    .sort((a, b) => res.cost[a.k] - res.cost[b.k]);
+}
+
+// Simulate a planned leg (including growth from food eaten on the way) and make sure the head never bites the body.
+function legOk(p) {
+  let l = len, pend = pending;
+  const recent = route.slice(-MAX_LEN).map((x) => key(x.c, x.r));
+  const eatenLocal = new Set();
+  for (const s of p) {
+    if (pend > 0 && l < MAX_LEN) { l++; pend--; }
+    const k = key(s.c, s.r);
+    if (l > 1 && recent.slice(recent.length - (l - 1)).includes(k)) return false;
+    recent.push(k);
+    const cell = grid[s.c][s.r];
+    if (cell.count > 0 && !eaten.has(cell) && !eatenLocal.has(cell)) {
+      eatenLocal.add(cell);
+      pend += cell.star ? GROW_STAR : GROW_NORMAL;
+    }
+    if (l >= MAX_LEN) pend = 0;
+  }
+  return true;
+}
+
+// After the leg, is there still room around the head? (avoids coiling into a dead end)
+function safeAfter(p) {
+  let l = len, pend = pending;
+  const eatenLocal = new Set();
+  for (const s of p) {
+    if (pend > 0 && l < MAX_LEN) { l++; pend--; }
+    const cell = grid[s.c][s.r];
+    if (cell.count > 0 && !eaten.has(cell) && !eatenLocal.has(cell)) {
+      eatenLocal.add(cell);
+      pend += cell.star ? GROW_STAR : GROW_NORMAL;
+    }
+    if (l >= MAX_LEN) pend = 0;
+  }
+  l = Math.min(MAX_LEN, l + pend);
+  const full = route.concat(p);
+  const tailK = key(full[Math.max(0, full.length - l)].c, full[Math.max(0, full.length - l)].r);
+  const wall = new Set();
+  for (let i = Math.max(0, full.length - l); i < full.length; i++) wall.add(key(full[i].c, full[i].r));
+  wall.delete(tailK); // the tail cell frees up as soon as the snake moves
+  const hk = key(p[p.length - 1].c, p[p.length - 1].r);
+  const seen = new Set([hk]);
+  const stack = [hk];
+  while (stack.length) {
+    const x = stack.pop(), c = (x / 7) | 0, r = x % 7;
+    for (const [dc, dr] of DIRS) {
+      const nc = c + dc, nr = r + dr;
+      if (!grid[nc]?.[nr]) continue;
+      const nk = key(nc, nr);
+      if (seen.has(nk) || wall.has(nk)) continue;
+      seen.add(nk); stack.push(nk);
+    }
+  }
+  const tailCell = full[Math.max(0, full.length - l)];
+  return l <= 2 || !grid[tailCell.c]?.[tailCell.r] || seen.has(tailK);
+}
+
+const legStats = { timed: 0, static: 0, wander: 0, ghost: 0 };
+
+// Prefer routes that never touch food that is not due yet; only if there is no
+// such route is the snake allowed to cross (and eat) higher food early.
+function planLeg(cands, allowCross = true) {
+  const modes = [["timed", true], ["static", true]];
+  if (allowCross) modes.push(["timed", false], ["static", false]);
+  for (const [body, hard] of modes) {
+    const res = search({ body, allowed: cands, hard });
+    for (const { k } of rankedTargets(res, cands)) {
+      const p = reconstruct(res, k);
+      if (body === "timed" && !legOk(p)) continue;
+      if (!safeAfter(p)) continue;
+      legStats[body]++;
+      return p;
+    }
+  }
+  return null;
+}
+
+// Boxed in by its own body: take one step towards the roomiest area and try again.
+function wanderStep() {
+  const res = search({ body: "timed", allowed: new Set() });
+  const end = route.length - 1;
+  const wall = new Set();
+  for (let i = Math.max(0, end - len + 1); i <= end; i++) wall.add(key(route[i].c, route[i].r));
+  let best = null, bestArea = -1;
+  for (let k = 0; k < NK; k++) {
+    if (res.steps[k] !== 1) continue;
+    const seen = new Set([k]);
+    const stack = [k];
+    while (stack.length) {
+      const x = stack.pop(), c = (x / 7) | 0, r = x % 7;
+      for (const [dc, dr] of DIRS) {
+        const nc = c + dc, nr = r + dr;
+        if (!grid[nc]?.[nr]) continue;
+        const nk = key(nc, nr);
+        if (seen.has(nk) || wall.has(nk)) continue;
+        seen.add(nk); stack.push(nk);
+      }
+    }
+    if (seen.size > bestArea) { bestArea = seen.size; best = { c: (k / 7) | 0, r: k % 7 }; }
+  }
+  if (best) legStats.wander++;
+  return best ? [best] : null;
+}
+
+function ghostLeg(cands) {
+  const res = search({ body: "ignore", allowed: cands });
+  const order = rankedTargets(res, cands);
+  if (!order.length) return null;
+  legStats.ghost++;
+  return reconstruct(res, order[0].k);
+}
+
+// Plan the whole run
+{
+  // The snake slides in from the left edge with a body of 3.
+  const lows = buckets[0];
+  let entryRow = -1, bestD = Infinity;
+  for (const emptyOnly of [true, false]) {
+    for (let r = 0; r < 7; r++) {
+      const cell = grid[0]?.[r];
+      if (!cell || (emptyOnly && cell.count > 0)) continue;
+      const d = Math.min(...lows.map((f) => f.c + Math.abs(f.row - r)));
+      if (d < bestD) { bestD = d; entryRow = r; }
+    }
+    if (entryRow >= 0) break;
+  }
+  if (entryRow < 0) entryRow = grid[0].findIndex(Boolean);
+  len = 3;
+  route.push({ c: -1, r: entryRow }); L.push(len); // off-grid entry cell
+  pushStep(0, entryRow);
+
+  let guard = 0, stuck = 0;
+  const CROSS_AFTER = Number(env.CROSS_AFTER ?? 0); // (optional) steps to wait before eating a higher day early
+  for (const bucket of buckets) {
+    const remaining = new Set(bucket);
+    for (;;) {
+      for (const cell of [...remaining]) if (eaten.has(cell)) remaining.delete(cell);
+      if (!remaining.size || ++guard > 8000) break;
+      let leg = planLeg(remaining, stuck >= CROSS_AFTER);
+      if (leg) stuck = 0;
+      else { leg = wanderStep(); stuck++; }
+      if (!leg) leg = ghostLeg(remaining);
+      if (!leg) break;
+      for (const s of leg) pushStep(s.c, s.r);
+    }
+  }
+}
+
+// Finale: after the highest contribution the snake runs to the nearest border and stops there.
+const isBorder = (c, r) => DIRS.some(([dc, dr]) => !grid[c + dc]?.[r + dr]);
+{
+  const head = route[route.length - 1];
+  if (!isBorder(head.c, head.r)) {
+    const borderCells = allDays.filter((d) => isBorder(d.c, d.row));
+    for (const body of ["timed", "static"]) {
+      const res = search({ body, allowed: new Set() });
+      let done = false;
+      for (const { k } of rankedTargets(res, borderCells)) {
+        const p = reconstruct(res, k);
+        if (body === "timed" && !legOk(p)) continue;
+        for (const s of p) pushStep(s.c, s.r);
+        done = true;
+        break;
+      }
+      if (done) break;
+    }
+  }
+}
+
+const N = route.length;
+const T = []; // T[i] = first step at which body segment i exists
+for (let k = 0; k < N; k++) for (let i = T.length; i < L[k]; i++) T[i] = k;
+const maxL = L[N - 1];
+
+/* -------------------------------------------------------------- rendering */
+
+// slower than before: ~0.1s per grid step (never faster than 0.05s, never slower than 0.12s)
+const STEP = env.STEP_SECONDS ? Number(env.STEP_SECONDS) : Math.min(0.12, Math.max(0.05, TARGET_SECONDS / N));
+
+const CELL = 12, GAP = 3, PITCH = CELL + GAP, PAD = 20, TOP = 44, BOTTOM = 36;
+const gridW = W * PITCH - GAP, gridH = 7 * PITCH - GAP;
+const WIDTH = PAD * 2 + gridW, HEIGHT = TOP + gridH + BOTTOM;
+const cx = (c) => PAD + c * PITCH + CELL / 2;
+const cy = (r) => TOP + r * PITCH + CELL / 2;
+
+let P = 1; // loop length, set below
+const pct = (t) => (t / P) * 100;
+const num = (v) => +v.toFixed(4);
+const n1 = (v) => +v.toFixed(1);
+const pf = (v) => `${num(v)}%`;
+const E = 0.0005;
+
+const hex = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+const mix = (a, b, t) => {
+  const A = hex(a), B = hex(b);
+  return "#" + A.map((v, i) => Math.round(v + (B[i] - v) * t).toString(16).padStart(2, "0")).join("");
+};
+
+const PALETTES = {
+  dark: {
+    empty: "#161b22", levels: ["#161b22", "#0e4429", "#006d32", "#26a641", "#39d353"],
+    text: "#8b949e", head: "#d2a8ff", tail: "#6e40c9",
+    starFront: "#ffe066", starEdge: "#b8860b", starBack: "#8a6508", ring: "#ffd33d", bar: "#a371f7",
+  },
+  light: {
+    empty: "#ebedf0", levels: ["#ebedf0", "#9be9a8", "#40c463", "#30a14e", "#216e39"],
+    text: "#57606a", head: "#6639ba", tail: "#b392f0",
+    starFront: "#ffcc00", starEdge: "#c28a00", starBack: "#8f6400", ring: "#e0a800", bar: "#8250df",
+  },
+};
+
+const segSize = (i) => (i === 0 ? CELL + 1 : Math.max(6, CELL - 1 - i * 0.15));
+const segCol = (pal, i) => mix(pal.head, pal.tail, maxL > 1 ? i / (maxL - 1) : 0);
+
+/* ---- finale: the total, drawn with the graph's own squares (5x7 digital-clock font) ---- */
+
+const GLYPH = {
+  0: [".###.", "#...#", "#..##", "#.#.#", "##..#", "#...#", ".###."],
+  1: ["..#..", ".##..", "..#..", "..#..", "..#..", "..#..", ".###."],
+  2: [".###.", "#...#", "....#", "...#.", "..#..", ".#...", "#####"],
+  3: [".###.", "#...#", "....#", "..##.", "....#", "#...#", ".###."],
+  4: ["...#.", "..##.", ".#.#.", "#..#.", "#####", "...#.", "...#."],
+  5: ["#####", "#....", "####.", "....#", "....#", "#...#", ".###."],
+  6: ["..##.", ".#...", "#....", "####.", "#...#", "#...#", ".###."],
+  7: ["#####", "....#", "...#.", "..#..", ".#...", ".#...", ".#..."],
+  8: [".###.", "#...#", "#...#", ".###.", "#...#", "#...#", ".###."],
+  9: [".###.", "#...#", "#...#", ".####", "....#", "...#.", ".##.."],
+  ",": ["..", "..", "..", "..", "..", ".#", "#."],
+};
+
+const totalStr = total.toLocaleString("en-US");
+const numberCells = (() => {
+  const glyphs = [...totalStr].map((ch) => GLYPH[ch]).filter(Boolean);
+  const cols = glyphs.reduce((a, g) => a + g[0].length, 0) + glyphs.length - 1;
+  const c0 = Math.max(0, Math.floor((W - cols) / 2));
+  const out = [];
+  let cc = 0;
+  for (const g of glyphs) {
+    g.forEach((row, r) => [...row].forEach((ch, x) => {
+      if (ch === "#" && grid[c0 + cc + x]?.[r]) out.push({ c: c0 + cc + x, r });
+    }));
+    cc += g[0].length + 1;
+  }
+  return out.sort((a, b) => a.c - b.c || a.r - b.r); // they will land left -> right
+})();
+
+/* ---- timeline (seconds): run -> touch border -> blink x2 -> BOOM -> bounce -> drop in one by one -> hold -> fade -> restart ---- */
+
+const tTouch = (N - 1) * STEP;
+const BL = 0.16;
+const tB0 = tTouch + 0.2;
+const tBlast = tB0 + 4 * BL + 0.1;
+const BOUNCE_MIN = 1.5, APPROACH = 0.55;
+const FR = numberCells.length;
+const PN = Math.max(FR, maxL);                                   // pieces = the snake's boxes (+ splits if the number needs more)
+const stagger = Math.min(0.12, Math.max(0.03, 3.6 / Math.max(1, FR)));
+const tFirst = tBlast + BOUNCE_MIN + APPROACH;
+const landNumber = (rank) => tFirst + rank * stagger;
+const landSurplus = (k) => tFirst - 0.3 + k * 0.03;
+const tLastLand = FR ? landNumber(FR - 1) : tFirst;
+const tSettleEnd = tLastLand + 0.2;
+const tFadeStart = tSettleEnd + 4;
+const tFadeEnd = tFadeStart + 0.7;
+P = tFadeEnd + 0.6;
+
+// where each body segment sits when the snake stops (head at index 0)
+const formation = [];
+for (let i = 0; i < maxL; i++) formation.push({ x: cx(route[N - 1 - i].c), y: cy(route[N - 1 - i].r) });
+
+// bounce box = the graph's border (centres of the outermost squares)
+const bx0 = cx(0), bx1 = cx(W - 1), by0 = cy(0), by1 = cy(6);
+
+// ballistic-free ricochet: constant speed, perfect reflection, one keyframe per wall hit
+function bounce(x, y, vx, vy, Tmax) {
+  const out = [];
+  let t = 0;
+  x = Math.min(bx1, Math.max(bx0, x)); y = Math.min(by1, Math.max(by0, y));
+  for (let guard = 0; t < Tmax - 1e-9 && guard < 600; guard++) {
+    const tx = vx > 0 ? (bx1 - x) / vx : vx < 0 ? (bx0 - x) / vx : Infinity;
+    const ty = vy > 0 ? (by1 - y) / vy : vy < 0 ? (by0 - y) / vy : Infinity;
+    const dt = Math.max(0, Math.min(tx, ty, Tmax - t));
+    x += vx * dt; y += vy * dt; t += dt;
+    if (dt === tx) { x = vx > 0 ? bx1 : bx0; vx = -vx; }
+    if (dt === ty) { y = vy > 0 ? by1 : by0; vy = -vy; }
+    if (dt > 1e-6 || out.length === 0) out.push({ t, x, y });
+  }
+  return out;
+}
+
+const rf = mulberry(777);
+const shuffle = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rf() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+
+// landing slots: lit squares of the number, plus (if the snake has more boxes than the number needs)
+// some plain squares where the spare boxes sink back into the graph
+const slots = numberCells.map((p, rank) => ({ x: cx(p.c), y: cy(p.r), lit: true, land: landNumber(rank) }));
+{
+  const used = new Set(numberCells.map((p) => key(p.c, p.r)));
+  const free = shuffle(allDays.filter((d) => !used.has(key(d.c, d.row))));
+  for (let k = 0; k < PN - FR; k++) slots.push({ x: cx(free[k % free.length].c), y: cy(free[k % free.length].row), lit: false, land: landSurplus(k) });
+}
+shuffle(slots);
+
+const pieces = Array.from({ length: PN }, (_, j) => {
+  const src = j % maxL;
+  const slot = slots[j];
+  const sp = 320 + rf() * 380, ang = rf() * Math.PI * 2;
+  let vx = Math.cos(ang) * sp, vy = Math.sin(ang) * sp;
+  if (Math.abs(vy) < 90) vy = (rf() < 0.5 ? -1 : 1) * (90 + rf() * 80);
+  const tt = slot.land - tBlast;                       // blast -> landing
+  const w0 = (rf() < 0.5 ? -1 : 1) * (300 + rf() * 400);
+  const R = 360 * (Math.round((w0 * tt) / 360) || 1);   // whole turns, so it lands perfectly square
+  return { src, slot, tt, R, events: bounce(formation[src].x, formation[src].y, vx, vy, tt - APPROACH), x0: formation[src].x, y0: formation[src].y };
+});
+
+function pieceKF(j, pc) {
+  const { slot, tt, R } = pc;
+  const k = CELL / segSize(pc.src);
+  const tr = (x, y, rot, sc) => `transform:translate(${n1(x)}px,${n1(y)}px) rotate(${n1(rot)}deg) scale(${num(sc)})`;
+  const st = [];
+  st.push([0, `opacity:0;${tr(pc.x0, pc.y0, 0, 1)}`]);
+  st.push([Math.max(0, pct(tBlast) - E), `opacity:0;${tr(pc.x0, pc.y0, 0, 1)}`]);
+  st.push([pct(tBlast), `opacity:1;${tr(pc.x0, pc.y0, 0, 1)}`]);
+  pc.events.forEach((e, i) => {
+    const last = i === pc.events.length - 1;
+    st.push([pct(tBlast + e.t), `${tr(e.x, e.y, R * (e.t / tt), 1)}${last ? ";animation-timing-function:cubic-bezier(.45,0,.9,.6)" : ""}`]);
+  });
+  st.push([pct(slot.land), `${tr(slot.x, slot.y, R, k)};animation-timing-function:cubic-bezier(.2,.7,.4,1)`]);
+  st.push([pct(slot.land + 0.08), `${tr(slot.x, slot.y - 3, R, k)};animation-timing-function:cubic-bezier(.55,0,1,.45)`]);
+  st.push([pct(slot.land + 0.16), `${tr(slot.x, slot.y, R, k)}`]);
+  st.push([pct(tFadeStart), "opacity:1"]);
+  st.push([pct(tFadeEnd), "opacity:0"]);
+  st.push([100, `opacity:0;${tr(slot.x, slot.y, R, k)}`]);
+  return `@keyframes px${j}{${st.map(([p, c]) => `${pf(p)}{${c}}`).join("")}}`;
+}
+
+function starPoints(R = 1, r = 0.46) {
+  const out = [];
+  for (let i = 0; i < 10; i++) {
+    const a = -Math.PI / 2 + (i * Math.PI) / 5;
+    const rad = i % 2 === 0 ? R : r;
+    out.push(`${num(Math.cos(a) * rad)},${num(Math.sin(a) * rad)}`);
+  }
+  return out.join(" ");
+}
+
+// opacity 1 only between a% and b% of the loop
+function windowKF(name, a, b) {
+  const s = [];
+  if (a <= 0) s.push("0%{opacity:1}");
+  else s.push(`0%,${pf(a - E)}{opacity:0}`, `${pf(a)}{opacity:1}`);
+  if (b >= 100) s.push("100%{opacity:1}");
+  else s.push(`${pf(b)}{opacity:1}`, `${pf(b + E)},100%{opacity:0}`);
+  return `@keyframes ${name}{${s.join("")}}`;
+}
+
+// opacity that jumps to the given values at the given times (seconds)
+function stepsKF(name, init, trans) {
+  let s = `0%{opacity:${init}}`, prev = init;
+  for (const [t, v] of trans) {
+    const p = pct(t);
+    s += `${pf(Math.max(0, p - E))}{opacity:${prev}}${pf(p)}{opacity:${v}}`;
+    prev = v;
+  }
+  return `@keyframes ${name}{${s}100%{opacity:${prev}}}`;
+}
+
+// food: visible, then fades out just as the head arrives
+function eatKF(name, tEat) {
+  const b = pct(tEat), a = Math.max(0, pct(tEat - STEP * 0.6));
+  return `@keyframes ${name}{0%${a > 0 ? "," + pf(a) : ""}{opacity:1}${pf(b)},100%{opacity:0}}`;
+}
+
+// expanding ring when a star is eaten
+function burstKF(name, tEat) {
+  const a = pct(tEat), b = pct(tEat + 0.5);
+  return `@keyframes ${name}{0%,${pf(a)}{opacity:0;transform:scale(.5)}${pf(a + E)}{opacity:.95;transform:scale(.5)}${pf(b)},100%{opacity:0;transform:scale(2.8)}}`;
+}
+
+function buildSvg(pal) {
+  const css = [];
+  const body = [];
+
+  css.push(
+    `text{font:600 11px -apple-system,"Segoe UI",Helvetica,Arial,sans-serif;fill:${pal.text}}`,
+    `.e,.n,.sp,.b,.pb,.w,.m,.bb,.f,.fc,.lab{animation-iteration-count:infinite;animation-timing-function:linear}`,
+    `.e,.n,.b,.pb,.w,.m,.bb,.f,.fc,.lab{animation-duration:${num(P)}s}`,
+    `.m{animation-name:mvA}`,
+    `.m,.bb{animation-fill-mode:both}`,
+    `.n,.f,.lab{opacity:0}`,
+    `.sp{animation-duration:2.8s}`,
+    `.b{opacity:0;transform-box:fill-box;transform-origin:center}`,
+    `.pb{transform-box:fill-box;transform-origin:left center;animation-name:pg}`,
+    `.lab{animation-name:lab}`
+  );
+
+  // --- snake head path. Part A (shared): the route up to step kA. Part B (per segment):
+  //     the last few steps, so every segment stops exactly where the body ends up (snake stays intact).
+  const kA = Math.max(0, N - maxL);
+  const dirChange = (k) => {
+    const a = route[k - 1], b = route[k], c = route[k + 1];
+    return b.c - a.c !== c.c - b.c || b.r - a.r !== c.r - b.r;
+  };
+  const mvA = [];
+  for (let k = 0; k <= kA; k++) {
+    if (k === 0 || k === kA || dirChange(k)) mvA.push(`${pf(pct(k * STEP))}{transform:translate(${cx(route[k].c)}px,${cy(route[k].r)}px)}`);
+  }
+  mvA.push(`100%{transform:translate(${cx(route[kA].c)}px,${cy(route[kA].r)}px)}`);
+  css.push(`@keyframes mvA{${mvA.join("")}}`);
+
+  // --- 3D star spin: stacked slabs offset by sin(theta), squashed by cos(theta)
+  const SAMPLES = 24, DEPTH = 0.16, Z = [-1, -0.33, 0.33, 1];
+  Z.forEach((z, li) => {
+    const stops = [];
+    for (let j = 0; j <= SAMPLES; j++) {
+      const th = (j / SAMPLES) * 2 * Math.PI;
+      const cs = Math.cos(th);
+      const sx = Math.abs(cs) < 0.02 ? 0.02 * Math.sign(cs || 1) : cs;
+      stops.push(`${pf((j / SAMPLES) * 100)}{transform:translateX(${num(z * DEPTH * Math.sin(th))}px) scaleX(${num(sx)})}`);
+    }
+    css.push(`@keyframes sp${li}{${stops.join("")}}`);
+  });
+  const layerFill = [pal.starBack, pal.starEdge, pal.starEdge, pal.starFront];
+  const starPts = starPoints();
+  const starR = CELL * 0.62;
+
+  // --- the graph (these squares are the "pixels")
+  for (let c = 0; c < W; c++)
+    for (let r = 0; r < 7; r++)
+      if (grid[c]?.[r])
+        body.push(`<rect x="${PAD + c * PITCH}" y="${TOP + r * PITCH}" width="${CELL}" height="${CELL}" rx="2" fill="${pal.empty}"/>`);
+
+  // --- food + stars
+  let id = 0, starIdx = 0;
+  const rings = [];
+  for (const cell of foods) {
+    const k = eatStep.get(cell); // undefined only if the planner gave up on it
+    const x = PAD + cell.c * PITCH, y = TOP + cell.row * PITCH;
+    const anim = k === undefined ? "" : `class="e" style="animation-name:k${id}"`;
+    if (k !== undefined) css.push(eatKF(`k${id}`, k * STEP));
+    if (cell.star) {
+      const X = x + CELL / 2, Y = y + CELL / 2;
+      const delay = -((starIdx * 0.37) % 2.8);
+      const faces = Z.map(
+        (_, li) => `<polygon class="sp" points="${starPts}" fill="${layerFill[li]}" style="animation-name:sp${li};animation-delay:${num(delay)}s"/>`
+      ).join("");
+      body.push(`<g ${anim} transform="translate(${X},${Y}) scale(${num(starR)})">${faces}</g>`);
+      if (k !== undefined) {
+        css.push(burstKF(`b${id}`, k * STEP));
+        rings.push(`<circle class="b" style="animation-name:b${id}" cx="${X}" cy="${Y}" r="${CELL * 0.6}" fill="none" stroke="${pal.ring}" stroke-width="2"/>`);
+      }
+      starIdx++;
+    } else {
+      body.push(`<rect ${anim} x="${x}" y="${y}" width="${CELL}" height="${CELL}" rx="2" fill="${pal.levels[cell.level || 1]}"/>`);
+    }
+    id++;
+  }
+  body.push(...rings);
+
+  // --- snake. Every segment follows the head's path, i steps later.
+  //     w = appear / blink / hand over at the blast, m = shared route (A), bb = last steps (B), rect = the segment box
+  for (let i = maxL - 1; i >= 0; i--) {
+    const size = segSize(i);
+    const a = T[i] * STEP;
+    css.push(stepsKF(`v${i}`, a <= 0 ? 1 : 0, [
+      ...(a > 0 ? [[a, 1]] : []),
+      [tB0, 0.1], [tB0 + BL, 1], [tB0 + 2 * BL, 0.1], [tB0 + 3 * BL, 1], // blink twice
+      [tBlast, 0],                                                        // boom: the boxes below take over at the same spot
+    ]));
+    const fi = N - 1 - i;
+    const sb = [];
+    if (fi > kA) {
+      sb.push(`0%,${pf(pct(kA * STEP))}{transform:translate(0px,0px)}`);
+      for (let k = kA + 1; k <= fi; k++) {
+        if (k === fi || dirChange(k))
+          sb.push(`${pf(pct(k * STEP))}{transform:translate(${cx(route[k].c) - cx(route[kA].c)}px,${cy(route[k].r) - cy(route[kA].r)}px)}`);
+      }
+      sb.push(`100%{transform:translate(${cx(route[fi].c) - cx(route[kA].c)}px,${cy(route[fi].r) - cy(route[kA].r)}px)}`);
+    } else {
+      sb.push("0%,100%{transform:translate(0px,0px)}");
+    }
+    css.push(`@keyframes sb${i}{${sb.join("")}}`);
+    body.push(
+      `<g class="w" style="animation-name:v${i}"><g class="m" style="animation-delay:${num(i * STEP)}s">` +
+        `<g class="bb" style="animation-name:sb${i};animation-delay:${num(i * STEP)}s">` +
+        `<rect x="${num(-size / 2)}" y="${num(-size / 2)}" width="${num(size)}" height="${num(size)}" rx="${num(size * 0.32)}" fill="${segCol(pal, i)}"/></g></g></g>`
+    );
+  }
+
+  // --- BOOM: flash at the head
+  css.push(
+    `@keyframes flash{0%,${pf(pct(tBlast))}{opacity:0;transform:scale(.3)}${pf(pct(tBlast) + E)}{opacity:1;transform:scale(.3)}${pf(pct(tBlast + 0.45))},100%{opacity:0;transform:scale(6)}}`
+  );
+  body.push(`<circle class="b" style="animation-name:flash" cx="${formation[0].x}" cy="${formation[0].y}" r="9" fill="${pal.ring}"/>`);
+
+  // --- the snake's boxes: blast apart, ricochet around the graph's border, then drop one by one into the number
+  pieces.forEach((pc, j) => {
+    const size = segSize(pc.src);
+    const lit = pc.slot.lit ? pal.levels[4] : pal.empty;
+    css.push(pieceKF(j, pc));
+    css.push(`@keyframes gc${j}{0%,${pf(pct(pc.slot.land - 0.2))}{fill:${segCol(pal, pc.src)}}${pf(pct(pc.slot.land))},100%{fill:${lit}}}`);
+    body.push(
+      `<g class="f" style="animation-name:px${j}"><rect class="fc" style="animation-name:gc${j}" x="${num(-size / 2)}" y="${num(-size / 2)}" width="${num(size)}" height="${num(size)}" rx="${num(size * 0.32)}"/></g>`
+    );
+  });
+
+  // --- caption under the graph (not on top of it)
+  css.push(`@keyframes lab{0%,${pf(pct(tSettleEnd))}{opacity:0}${pf(pct(tSettleEnd + 0.4))},${pf(pct(tFadeStart))}{opacity:1}${pf(pct(tFadeEnd))},100%{opacity:0}}`);
+  body.push(`<text class="lab" x="${WIDTH / 2}" y="${TOP + gridH + 32}" text-anchor="middle">CONTRIBUTIONS IN THE LAST YEAR</text>`);
+
+  // --- HUD: legend + live length counter + progress bar
+  body.push(`<text x="${PAD}" y="26">★ = days with ${STAR_MIN === Infinity ? "-" : STAR_MIN}+ contributions (grow x${GROW_STAR / GROW_NORMAL})  ·  ${starCount} stars</text>`);
+  body.push(`<text x="${WIDTH - PAD - 30}" y="26" text-anchor="end">SNAKE LENGTH</text>`);
+  for (let n = 3; n <= maxL; n++) {
+    css.push(windowKF(`l${n}`, n === 3 ? 0 : pct(T[n - 1] * STEP), n < maxL ? pct(T[n] * STEP) : 100));
+    body.push(`<text class="n" style="animation-name:l${n}" x="${WIDTH - PAD - 24}" y="26" fill="${pal.ring}">${n}</text>`);
+  }
+  const barY = TOP + gridH + 12;
+  css.push(`@keyframes pg{0%{transform:scaleX(.001)}${pf(pct(tTouch))}{transform:scaleX(1)}100%{transform:scaleX(1)}}`);
+  body.push(`<rect x="${PAD}" y="${barY}" width="${gridW}" height="4" rx="2" fill="${pal.empty}"/>`);
+  body.push(`<rect class="pb" x="${PAD}" y="${barY}" width="${gridW}" height="4" rx="2" fill="${pal.bar}"/>`);
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${WIDTH} ${HEIGHT}" width="${WIDTH}" height="${HEIGHT}">
+<title>Contribution Snake Game</title>
+<style>${css.join("")}</style>
+${body.join("\n")}
+</svg>
+`;
+}
+
+/* ------------------------------------------------------------------ main */
+
+await mkdir(OUT_DIR, { recursive: true });
+await writeFile(`${OUT_DIR}/github-contribution-grid-snake.svg`, buildSvg(PALETTES.light));
+await writeFile(`${OUT_DIR}/github-contribution-grid-snake-dark.svg`, buildSvg(PALETTES.dark));
+if (env.DEBUG) {
+  await writeFile(
+    `${OUT_DIR}/debug.json`,
+    JSON.stringify({
+      route, L, total, W, bounds: [bx0, bx1, by0, by1], STEP,
+      eatOrder: [...eatStep].sort((a, b) => a[1] - b[1]).map(([c, k]) => ({ count: c.count, star: c.star, k })),
+      numberCells,
+      slots: slots.map((q) => ({ x: q.x, y: q.y, lit: q.lit, land: q.land })),
+      events: pieces.map((p) => p.events.map((e) => [e.t, e.x, e.y])),
+    })
+  );
+}
+
+const last = route[N - 1];
+const sumDays = allDays.reduce((a, d) => a + d.count, 0);
+console.log(
+  `Snake game built: ${eatStep.size}/${foods.length} food eaten (${starCount} stars, threshold ${STAR_MIN}), ${buckets.length} count-groups, ` +
+    `legs ${JSON.stringify(legStats)}, route ${N} steps @ ${STEP.toFixed(3)}s, length 3 -> ${maxL}, ends on border cell (${last.c},${last.r}): ${isBorder(last.c, last.r)}, ` +
+    `${PN} pieces -> "${totalStr}", loop ${P.toFixed(1)}s -> ${OUT_DIR}/`
+);
+console.log(
+  `Contribution check: API total = ${total} (private/restricted part: ${restricted}), sum of the ${allDays.length} days = ${sumDays}. ` +
+    `Compare with the number on your profile page.`
+);

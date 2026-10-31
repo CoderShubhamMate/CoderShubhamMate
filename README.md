@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="https://raw.githubusercontent.com/CoderShubhamMate/CoderShubhamMate/main/assets/hero.svg" alt="Shubham Mate - Full-Stack Web3 Engineer | Blockchain Architect | Builder" width="100%" />
+  <img src="https://raw.githubusercontent.com/CoderShubhamMate/CoderShubhamMate/output/hero.svg" alt="Shubham Mate - Software Engineer | System Design | Blockchain Systems" width="100%" />
 </div>
 
 <br/>
@@ -25,22 +25,27 @@
 <br/>
 
 <div align="center">
-  <img src="https://raw.githubusercontent.com/CoderShubhamMate/CoderShubhamMate/main/assets/block-01-about.svg" alt="About Me" width="100%" />
+  <img src="https://raw.githubusercontent.com/CoderShubhamMate/CoderShubhamMate/output/block-01-about.svg" alt="About Me" width="100%" />
 </div>
 
 ```typescript
 const shubham = {
-  title: "Full-Stack Web3 Engineer",
+  title: "Software Engineer",
   location: "India 🇮🇳",
   focus: [
-    "Decentralized Infrastructure",
+    "System Design & Architecture",
+    "Distributed, Scalable Backends",
     "Zero-Trust Security Architecture",
-    "Cryptographic Protocol Design",
     "Blockchain & Smart Contracts",
   ],
   currentlyBuilding: "BBSNS — Enterprise Notarization on Blockchain",
+  currentlyStudying: [
+    "Distributed Systems",
+    "Scalability & Reliability Patterns",
+    "Cloud-Native Architecture & Microservices",
+  ],
   exploring: "Trusted Execution Environments (TEE) for Off-Chain Computation",
-  openTo: ["Protocol Design Consulting", "Web3 Collaboration", "Open Source"],
+  openTo: ["System Design Discussions", "Protocol Design Consulting", "Web3 Collaboration", "Open Source"],
   philosophy: "Replace legacy trust assumptions with cryptographic proof.",
 };
 ```
@@ -48,17 +53,27 @@ const shubham = {
 <br/>
 
 <div align="center">
-  <img src="https://raw.githubusercontent.com/CoderShubhamMate/CoderShubhamMate/main/assets/block-02-build.svg" alt="What I Build" width="100%" />
+  <img src="https://raw.githubusercontent.com/CoderShubhamMate/CoderShubhamMate/output/block-02-focus.svg" alt="System Design Focus" width="100%" />
 </div>
 
 <div align="center">
-  <img src="https://raw.githubusercontent.com/CoderShubhamMate/CoderShubhamMate/main/assets/build-cards.svg" alt="Full-Stack Platforms: complex, multi-actor web platforms with Next.js and Node.js. Blockchain Protocols: on-chain infrastructure using Solidity, multi-sig governance and gasless EIP-712 meta-transaction relays. Desktop Applications: secure, sandboxed Electron consoles bridging hardware wallets with cloud backends." width="100%" />
+  <img src="https://raw.githubusercontent.com/CoderShubhamMate/CoderShubhamMate/output/focus.svg" alt="System design focus: scalability, reliability, fault tolerance, consistency and trade-offs, caching, load balancing, message queues, database design, API design, observability, zero-trust security, cloud-native and microservices" width="100%" />
 </div>
 
 <br/>
 
 <div align="center">
-  <img src="https://raw.githubusercontent.com/CoderShubhamMate/CoderShubhamMate/main/assets/block-03-stack.svg" alt="Technology Arsenal" width="100%" />
+  <img src="https://raw.githubusercontent.com/CoderShubhamMate/CoderShubhamMate/output/block-03-build.svg" alt="What I Build" width="100%" />
+</div>
+
+<div align="center">
+  <img src="https://raw.githubusercontent.com/CoderShubhamMate/CoderShubhamMate/output/build-cards.svg" alt="Full-Stack Platforms: complex, multi-actor web platforms with Next.js and Node.js. Blockchain Protocols: on-chain infrastructure using Solidity, multi-sig governance and gasless EIP-712 meta-transaction relays. Desktop Applications: secure, sandboxed Electron consoles bridging hardware wallets with cloud backends." width="100%" />
+</div>
+
+<br/>
+
+<div align="center">
+  <img src="https://raw.githubusercontent.com/CoderShubhamMate/CoderShubhamMate/output/block-04-stack.svg" alt="Technology Arsenal" width="100%" />
 </div>
 
 <div align="center">
@@ -96,27 +111,41 @@ const shubham = {
 <br/>
 
 <div align="center">
-  <img src="https://raw.githubusercontent.com/CoderShubhamMate/CoderShubhamMate/main/assets/block-04-featured.svg" alt="Featured Engineering" width="100%" />
+  <img src="https://raw.githubusercontent.com/CoderShubhamMate/CoderShubhamMate/output/block-05-featured.svg" alt="Featured Engineering" width="100%" />
 </div>
 
 <div align="center">
   <a href="https://github.com/CoderShubhamMate/Block-Chain-Based-Secure-Notarization-System">
-    <img src="https://raw.githubusercontent.com/CoderShubhamMate/CoderShubhamMate/main/assets/project-bbsns.svg" alt="BBSNS - Secure Notarization System" width="49%" />
+    <img src="https://raw.githubusercontent.com/CoderShubhamMate/CoderShubhamMate/output/project-bbsns.svg" alt="BBSNS - Secure Notarization System" width="49%" />
   </a>
   &nbsp;
   <a href="https://github.com/CoderShubhamMate/offchain-computing-tee">
-    <img src="https://raw.githubusercontent.com/CoderShubhamMate/CoderShubhamMate/main/assets/project-tee.svg" alt="Offchain TEE Computing" width="49%" />
+    <img src="https://raw.githubusercontent.com/CoderShubhamMate/CoderShubhamMate/output/project-tee.svg" alt="Offchain TEE Computing" width="49%" />
   </a>
 </div>
 
 <br/>
 
 <div align="center">
-  <img src="https://raw.githubusercontent.com/CoderShubhamMate/CoderShubhamMate/main/assets/block-05-open.svg" alt="Open To" width="100%" />
+  <img src="https://raw.githubusercontent.com/CoderShubhamMate/CoderShubhamMate/output/block-06-architecture.svg" alt="Architecture Case Study" width="100%" />
+</div>
+
+<div align="center">
+  <img src="https://raw.githubusercontent.com/CoderShubhamMate/CoderShubhamMate/output/architecture.svg" alt="BBSNS architecture, simplified: a Next.js web app and an Electron desktop console talk to a Node.js API, which uses self-healing background workers, an AWS S3 vault and a gasless EIP-712 relay to reach Solidity smart contracts with multi-sig governance" width="100%" />
+</div>
+
+<p align="center"><i>Simplified, illustrative view of <a href="https://github.com/CoderShubhamMate/Block-Chain-Based-Secure-Notarization-System">BBSNS</a> — see the repository for the real design.</i></p>
+
+<br/>
+
+<div align="center">
+  <img src="https://raw.githubusercontent.com/CoderShubhamMate/CoderShubhamMate/output/block-07-open.svg" alt="Open To" width="100%" />
 </div>
 
 <div align="center">
 
+![System Design](https://img.shields.io/badge/System%20Design%20Discussions-0d1117?style=for-the-badge&logo=diagramsdotnet&logoColor=58A6FF)
+&nbsp;
 ![Protocol Design](https://img.shields.io/badge/Protocol%20Design%20Consulting-0d1117?style=for-the-badge&logo=ethereum&logoColor=58A6FF)
 &nbsp;
 ![Web3 Collab](https://img.shields.io/badge/Web3%20Collaboration-0d1117?style=for-the-badge&logo=solidity&logoColor=58A6FF)
@@ -130,7 +159,7 @@ const shubham = {
 <br/>
 
 <div align="center">
-  <img src="https://raw.githubusercontent.com/CoderShubhamMate/CoderShubhamMate/main/assets/block-06-stats.svg" alt="GitHub Stats" width="100%" />
+  <img src="https://raw.githubusercontent.com/CoderShubhamMate/CoderShubhamMate/output/block-08-stats.svg" alt="GitHub Stats" width="100%" />
 </div>
 
 <!-- Uses github-profile-summary-cards — a different service from github-readme-stats, avoiding rate limit issues -->
@@ -158,13 +187,13 @@ const shubham = {
 <br/>
 
 <div align="center">
-  <img src="https://github-readme-activity-graph.vercel.app/graph?username=CoderShubhamMate&theme=tokyo-night&hide_border=true&area=true" width="98%" />
+  <img src="https://raw.githubusercontent.com/CoderShubhamMate/CoderShubhamMate/output/activity.svg" alt="Contributions per week over the last year" width="100%" />
 </div>
 
 <br/>
 
 <div align="center">
-  <img src="https://raw.githubusercontent.com/CoderShubhamMate/CoderShubhamMate/main/assets/block-07-snake.svg" alt="Contribution Snake" width="100%" />
+  <img src="https://raw.githubusercontent.com/CoderShubhamMate/CoderShubhamMate/output/block-09-snake.svg" alt="Contribution Snake" width="100%" />
 </div>
 
 <div align="center">
@@ -178,17 +207,17 @@ const shubham = {
 <br/>
 
 <div align="center">
-  <img src="https://raw.githubusercontent.com/CoderShubhamMate/CoderShubhamMate/main/assets/block-08-trophies.svg" alt="GitHub Trophies" width="100%" />
+  <img src="https://raw.githubusercontent.com/CoderShubhamMate/CoderShubhamMate/output/block-10-trophies.svg" alt="GitHub Trophies" width="100%" />
 </div>
 
 <div align="center">
-  <img src="https://github-profile-trophy.vercel.app/?username=CoderShubhamMate&theme=tokyonight&no-frame=true&no-bg=true&column=7&margin-w=4&rank=SECRET,SSS,SS,S,AAA,AA,A,B,C" />
+  <img src="https://raw.githubusercontent.com/CoderShubhamMate/CoderShubhamMate/output/trophies.svg" alt="GitHub trophies: contributions, commits, pull requests, issues, stars earned, followers, repositories" width="100%" />
 </div>
 
 <br/>
 
 <div align="center">
-  <img src="https://raw.githubusercontent.com/CoderShubhamMate/CoderShubhamMate/main/assets/footer.svg" alt="Replace legacy trust assumptions with cryptographic proof." width="100%" />
+  <img src="https://raw.githubusercontent.com/CoderShubhamMate/CoderShubhamMate/output/footer.svg" alt="Replace legacy trust assumptions with cryptographic proof." width="100%" />
 </div>
 
 <p align="center">

@@ -40,6 +40,13 @@ jobs:
           # MAX_SNAKE_LENGTH: "30"   # cap on snake length
           # TARGET_SECONDS: "35"     # how long the eating phase should last (lower = faster snake)
 
+      - name: Generate profile graphics
+        run: node .github/scripts/generate-profile.mjs
+        env:
+          GH_USER: CoderShubhamMate
+          GITHUB_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
+          OUT_DIR: dist
+
       - name: Push SVGs to output branch
         uses: crazy-max/ghaction-github-pages@v3.1.0
         with:

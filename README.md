@@ -163,6 +163,11 @@ const shubham = {
 </div>
 
 <!-- Uses github-profile-summary-cards — a different service from github-readme-stats, avoiding rate limit issues -->
+<div align="center">
+  <img src="https://raw.githubusercontent.com/CoderShubhamMate/CoderShubhamMate/output/work.svg" alt="Work summary: public and private repositories and contributions" width="100%" />
+</div>
+
+<br/>
 
 <div align="center">
   <img src="https://github-profile-summary-cards.vercel.app/api/cards/profile-details?username=CoderShubhamMate&theme=tokyonight" width="98%" />

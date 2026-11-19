@@ -46,7 +46,14 @@ jobs:
           GH_USER: CoderShubhamMate
           GITHUB_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
           OUT_DIR: dist
-
+      
+      - name: Generate work summary (public + private counts)
+        run: node .github/scripts/generate-work.mjs
+        env:
+          GH_USER: CoderShubhamMate
+          GITHUB_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
+          OUT_DIR: dist
+      
       - name: Push SVGs to output branch
         uses: crazy-max/ghaction-github-pages@v3.1.0
         with:

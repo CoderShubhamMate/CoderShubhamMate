@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 396" width="900" height="396" role="img" aria-label="BBSNS architecture, simplified: web app and Electron console talk to a Node.js API, which uses background workers, an S3 vault and a gasless EIP-712 relay to Solidity smart contracts">
+<style>text{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,'Liberation Mono',monospace}.pk{animation-iteration-count:infinite;animation-duration:2.4s;animation-timing-function:linear}@keyframes pk0{0%{transform:translate(0px,0px);opacity:0}15%{opacity:1}85%{opacity:1}100%{transform:translate(80px,0px);opacity:0}}@keyframes pk1{0%{transform:translate(0px,0px);opacity:0}15%{opacity:1}85%{opacity:1}100%{transform:translate(80px,0px);opacity:0}}@keyframes pk2{0%{transform:translate(0px,0px);opacity:0}15%{opacity:1}85%{opacity:1}100%{transform:translate(80px,0px);opacity:0}}@keyframes pk3{0%{transform:translate(0px,0px);opacity:0}15%{opacity:1}85%{opacity:1}100%{transform:translate(0px,38px);opacity:0}}@keyframes pk4{0%{transform:translate(0px,0px);opacity:0}15%{opacity:1}85%{opacity:1}100%{transform:translate(0px,38px);opacity:0}}@keyframes pk5{0%{transform:translate(0px,0px);opacity:0}15%{opacity:1}85%{opacity:1}100%{transform:translate(0px,38px);opacity:0}}</style>
+<rect x=".5" y=".5" width="899" height="395" rx="16" fill="#0b1120" stroke="#1e293b"/>
+<text x="150" y="40" text-anchor="middle" font-size="11" font-weight="700" letter-spacing="3" fill="#22d3ee">CLIENTS</text><text x="450" y="40" text-anchor="middle" font-size="11" font-weight="700" letter-spacing="3" fill="#8b5cf6">BACKEND</text><text x="750" y="40" text-anchor="middle" font-size="11" font-weight="700" letter-spacing="3" fill="#f472b6">ON-CHAIN</text>
+<rect x="40" y="64" width="220" height="66" rx="12" fill="#0f172a" stroke="#22d3ee" stroke-opacity=".75"/>
+<circle cx="54" cy="80" r="3.5" fill="#22d3ee"/>
+<text x="150" y="93" text-anchor="middle" font-size="15" font-weight="800" fill="#f8fafc">Web App</text>
+<text x="150" y="112" text-anchor="middle" font-size="11" fill="#64748b">Next.js</text>
+<rect x="40" y="168" width="220" height="66" rx="12" fill="#0f172a" stroke="#22d3ee" stroke-opacity=".75"/>
+<circle cx="54" cy="184" r="3.5" fill="#22d3ee"/>
+<text x="150" y="197" text-anchor="middle" font-size="15" font-weight="800" fill="#f8fafc">Desktop Console</text>
+<text x="150" y="216" text-anchor="middle" font-size="11" fill="#64748b">Electron + hardware wallets</text>
+<rect x="340" y="64" width="220" height="170" rx="12" fill="#0f172a" stroke="#8b5cf6" stroke-opacity=".75"/>
+<circle cx="354" cy="80" r="3.5" fill="#8b5cf6"/>
+<text x="450" y="145" text-anchor="middle" font-size="15" font-weight="800" fill="#f8fafc">API</text>
+<text x="450" y="164" text-anchor="middle" font-size="11" fill="#64748b">Node.js backend</text>
+<rect x="340" y="272" width="105" height="66" rx="12" fill="#0f172a" stroke="#8b5cf6" stroke-opacity=".75"/>
+<circle cx="354" cy="288" r="3.5" fill="#8b5cf6"/>
+<text x="392.5" y="301" text-anchor="middle" font-size="13" font-weight="800" fill="#f8fafc">Workers</text>
+<text x="392.5" y="320" text-anchor="middle" font-size="11" fill="#64748b">self-healing</text>
+<rect x="455" y="272" width="105" height="66" rx="12" fill="#0f172a" stroke="#8b5cf6" stroke-opacity=".75"/>
+<circle cx="469" cy="288" r="3.5" fill="#8b5cf6"/>
+<text x="507.5" y="301" text-anchor="middle" font-size="13" font-weight="800" fill="#f8fafc">S3 Vault</text>
+<text x="507.5" y="320" text-anchor="middle" font-size="11" fill="#64748b">AWS S3</text>
+<rect x="640" y="64" width="220" height="66" rx="12" fill="#0f172a" stroke="#f472b6" stroke-opacity=".75"/>
+<circle cx="654" cy="80" r="3.5" fill="#f472b6"/>
+<text x="750" y="93" text-anchor="middle" font-size="15" font-weight="800" fill="#f8fafc">Meta-Tx Relay</text>
+<text x="750" y="112" text-anchor="middle" font-size="11" fill="#64748b">gasless - EIP-712</text>
+<rect x="640" y="168" width="220" height="170" rx="12" fill="#0f172a" stroke="#f472b6" stroke-opacity=".75"/>
+<circle cx="654" cy="184" r="3.5" fill="#f472b6"/>
+<text x="750" y="241" text-anchor="middle" font-size="15" font-weight="800" fill="#f8fafc">Smart Contracts</text>
+<text x="750" y="260" text-anchor="middle" font-size="11" fill="#64748b">Solidity</text><text x="750" y="276" text-anchor="middle" font-size="11" fill="#64748b">multi-sig governance</text>
+<line x1="260" y1="97" x2="340" y2="97" stroke="#22d3ee" stroke-opacity=".7" stroke-width="2" /><polygon points="340,97 332,101 332,93" fill="#22d3ee"/><circle class="pk" style="animation-name:pk0;animation-delay:0.00s" cx="260" cy="97" r="3.5" fill="#22d3ee"/>
+<line x1="260" y1="201" x2="340" y2="201" stroke="#22d3ee" stroke-opacity=".7" stroke-width="2" /><polygon points="340,201 332,205 332,197" fill="#22d3ee"/><circle class="pk" style="animation-name:pk1;animation-delay:0.45s" cx="260" cy="201" r="3.5" fill="#22d3ee"/>
+<line x1="560" y1="97" x2="640" y2="97" stroke="#8b5cf6" stroke-opacity=".7" stroke-width="2" /><polygon points="640,97 632,101 632,93" fill="#8b5cf6"/><circle class="pk" style="animation-name:pk2;animation-delay:0.90s" cx="560" cy="97" r="3.5" fill="#8b5cf6"/>
+<line x1="750" y1="130" x2="750" y2="168" stroke="#f472b6" stroke-opacity=".7" stroke-width="2" /><polygon points="750,168 746,160 754,160" fill="#f472b6"/><circle class="pk" style="animation-name:pk3;animation-delay:1.35s" cx="750" cy="130" r="3.5" fill="#f472b6"/>
+<line x1="392" y1="234" x2="392" y2="272" stroke="#8b5cf6" stroke-opacity=".7" stroke-width="2" stroke-dasharray="5 4"/><polygon points="392,272 388,264 396,264" fill="#8b5cf6"/><polygon points="392,234 396,242 388,242" fill="#8b5cf6"/><circle class="pk" style="animation-name:pk4;animation-delay:1.80s" cx="392" cy="234" r="3.5" fill="#8b5cf6"/>
+<line x1="507" y1="234" x2="507" y2="272" stroke="#8b5cf6" stroke-opacity=".7" stroke-width="2" stroke-dasharray="5 4"/><polygon points="507,272 503,264 511,264" fill="#8b5cf6"/><circle class="pk" style="animation-name:pk5;animation-delay:2.25s" cx="507" cy="234" r="3.5" fill="#8b5cf6"/>
+<text x="450" y="378" text-anchor="middle" font-size="11" fill="#64748b">// simplified, illustrative view - see the repository for the real design</text>
+</svg>
